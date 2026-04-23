@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<title>Electrica Ventas — CRM</title>
+<meta name="viewport" content="width=1440"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css?v=3"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="data.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" src="ui.jsx"></script>
+<script type="text/babel" src="login.jsx"></script>
+<script type="text/babel" src="dashboard.jsx"></script>
+<script type="text/babel" src="inbox.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "rol": "vendedor",
+  "vendedor": "v1",
+  "densidad": "comoda",
+  "acento": "#fb1313",
+  "mostrarBetas": true
+}/*EDITMODE-END*/;
+
+function titleFor(r, rol){
+  if (r==='dashboard') return { t:'Panorama general', s:'Vista global del equipo y canales' };
+  if (r==='inbox')      return { t:'Bandeja unificada', s: rol==='gerente' ? 'Todos los canales y vendedores' : 'Tus leads asignados' };
+  if (r==='asignacion') return { t:'Asignación de leads', s:'Distribuir nuevos leads al equipo' };
+  if (r==='pipeline')   return { t:'Pipeline de ventas', s:'Etapas del embudo' };
+  if (r==='cotizaciones')return{ t:'Cotizaciones', s:'Cotizaciones enviadas y su estado' };
+  if (r==='kpis')       return { t:'Indicadores de desempeño', s:'Métricas del equipo — mes en curso' };
+  if (r==='remarketing')return { t:'Remarketing', s:'Leads no cerrados listos para re-contactar' };
+  if (r==='unidades')   return { t:'Unidades GPS', s:'Ubicación de flota en tiempo real' };
+  return { t:r, s:'' };
+}
+
+function AppInner() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [route, setRoute] = useState('dashboard');
+  const [cmdK, setCmdK] = useState(false);
+  const [notif, setNotif] = useState(false);
+  const [nuevoLead, setNuevoLead] = useState(false);
+  const [autoAsignando, setAutoAsignando] = useState(false);
+  const toast = useToast();
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--accent', t.acento || '#facc15');
+  }, [t.acento]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setCmdK(true); }
+      if (e.key === 'Escape') { setCmdK(false); setNotif(false); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const rol = t.rol;
+  const rolVendedor = t.vendedor;
+
+  useEffect(() => {
+    if (rol === 'vendedor' && !['inbox','pipeline','cotizaciones','remarketing'].includes(route)) {
+      setRoute('inbox');
+    }
+  }, [rol]);
+
+  const onEnter = (r, v) => {
+    setTweak('rol', r);
+    if (v) setTweak('vendedor', v);
+    setLoggedIn(true);
+    setRoute(r === 'gerente' ? 'dashboard' : 'inbox');
+  };
+
+  if (!loggedIn) {
+    return (
+      <>
+        <Login onEnter={onEnter}/>
+        <TweaksPanel>
+          <TweakSection label="Sesión"/>
+          <TweakRadio label="Rol" value={t.rol} options={[{value:'gerente',label:'Gerente'},{value:'vendedor',label:'Vendedor'}]} onChange={v=>setTweak('rol',v)}/>
+          <TweakSection label="Apariencia"/>
+          <TweakColor label="Acento" value={t.acento} onChange={v=>setTweak('acento',v)}/>
+        </TweaksPanel>
+      </>
+    );
+  }
+
+  const info = titleFor(route, rol);
+  const doAutoAsignar = () => {
+    setAutoAsignando(true);
+    setTimeout(() => {
+      setAutoAsignando(false);
+      toast('Leads nuevos distribuidos al equipo','ok');
+      setRoute('asignacion');
+    }, 700);
+  };
+
+  return (
+    <div className="app">
+      <Sidebar route={route} setRoute={setRoute} rol={rol} rolActivoVendedor={rolVendedor}
+               setRol={v=>setTweak('rol',v)} onLogout={()=>{setLoggedIn(false);toast('Sesión cerrada','info');}}/>
+      <main className="content">
+        <TopBar title={info.t} subtitle={info.s} rol={rol}
+                onCmdK={()=>setCmdK(true)} onNotif={()=>setNotif(true)}>
+          {rol==='gerente' && route==='dashboard' && (
+            <button className="btn btn-sm btn-accent" onClick={doAutoAsignar} disabled={autoAsignando}>
+              <IcoBolt size={12}/>{autoAsignando ? 'Asignando…' : 'Auto-asignar leads'}
+            </button>
+          )}
+          {route!=='dashboard' && route!=='unidades' && (
+            <button className="btn btn-sm" onClick={()=>setNuevoLead(true)}><IcoPlus size={12}/>Nuevo lead</button>
+          )}
+        </TopBar>
+
+        {route === 'dashboard'    && <Dashboard setRoute={setRoute}/>}
+        {route === 'inbox'        && <Inbox rol={rol} rolVendedor={rolVendedor} setRoute={setRoute}/>}
+        {route === 'asignacion'   && <Asignacion/>}
+        {route === 'pipeline'     && <Pipeline rol={rol} rolVendedor={rolVendedor}/>}
+        {route === 'cotizaciones' && <Cotizaciones rol={rol} rolVendedor={rolVendedor}/>}
+        {route === 'kpis'         && <KpisView/>}
+        {route === 'remarketing'  && <Remarketing rol={rol} rolVendedor={rolVendedor}/>}
+        {route === 'unidades'     && <Unidades/>}
+      </main>
+
+      <CommandPalette open={cmdK} onClose={()=>setCmdK(false)} setRoute={setRoute} rol={rol}/>
+      <NotifPopover open={notif} onClose={()=>setNotif(false)} setRoute={setRoute}/>
+
+      <Modal open={nuevoLead} onClose={()=>setNuevoLead(false)} title="Registrar lead manualmente" width={560}
+        footer={<>
+          <button className="btn" onClick={()=>setNuevoLead(false)}>Cancelar</button>
+          <button className="btn btn-accent" onClick={()=>{setNuevoLead(false);toast('Lead creado y agregado a la cola','ok');}}><IcoPlus size={12}/>Crear lead</button>
+        </>}>
+        <div className="stack" style={{gap:12}}>
+          <div className="grid-2">
+            <div><div className="kpi-label" style={{marginBottom:4}}>Contacto</div><input className="input" placeholder="Nombre completo"/></div>
+            <div><div className="kpi-label" style={{marginBottom:4}}>Empresa</div><input className="input" placeholder="Razón social"/></div>
+          </div>
+          <div className="grid-2">
+            <div><div className="kpi-label" style={{marginBottom:4}}>Teléfono</div><input className="input mono" placeholder="+52 81 0000 0000"/></div>
+            <div><div className="kpi-label" style={{marginBottom:4}}>Correo</div><input className="input" placeholder="compras@empresa.mx"/></div>
+          </div>
+          <div className="grid-2">
+            <div><div className="kpi-label" style={{marginBottom:4}}>Canal origen</div><select className="input"><option>WhatsApp línea 1</option><option>WhatsApp línea 2</option><option>Correo</option><option>Llamada</option><option>Referido</option></select></div>
+            <div><div className="kpi-label" style={{marginBottom:4}}>Prioridad</div><select className="input"><option>Baja</option><option>Media</option><option>Alta</option></select></div>
+          </div>
+          <div><div className="kpi-label" style={{marginBottom:4}}>Notas</div><textarea className="input" rows={3} placeholder="Producto de interés, volumen estimado…"/></div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <ToastProvider>
+      <AppInner/>
+    </ToastProvider>
+  );
+}
+
+const waitForDeps = () => {
+  if (!window.Sidebar || !window.Dashboard || !window.Inbox || !window.Asignacion || !window.Login || !window.useTweaks || !window.ToastProvider || !window.CommandPalette) {
+    return setTimeout(waitForDeps, 30);
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+};
+waitForDeps();
+</script>
+</body>
+</html>
