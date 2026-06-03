@@ -9,7 +9,7 @@ infraestructura actual: nginx `sites-available`, PM2, Certbot/DuckDNS.
 > - Puerto backend Electrica: **`3010`** (el `3000` lo usa appsoluciones)
 > - Dominio nuevo: **`electrica-ventas.duckdns.org`**
 > - Email Certbot: `fernandotrejo159@gmail.com`
-> - Token DuckDNS: `5fdaafa8-51e6-4bbd-9bd7-246f27427216`
+> - Token DuckDNS: `<TU_TOKEN_DUCKDNS>`
 
 ---
 
@@ -45,7 +45,7 @@ sudo systemctl enable --now redis-server
 ## 1. DNS — apuntar el subdominio
 
 ```bash
-curl "https://www.duckdns.org/update?domains=electrica-ventas&token=5fdaafa8-51e6-4bbd-9bd7-246f27427216&ip=31.220.109.7&verbose=true"
+curl "https://www.duckdns.org/update?domains=electrica-ventas&token=<TU_TOKEN_DUCKDNS>&ip=31.220.109.7&verbose=true"
 ```
 
 Debe responder `OK`. Verifica:
