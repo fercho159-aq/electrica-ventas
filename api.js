@@ -1,7 +1,14 @@
 // Cliente API + WebSocket para Electrica Ventas
 // Se carga como script antes de los componentes JSX
 
-var API_BASE = 'http://localhost:3000';
+// Auto-detección de entorno:
+//  - Local (file:// o localhost): backend en localhost:3000
+//  - Producción (mismo dominio, nginx proxetea /api y /ws): origen relativo
+var IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:';
+var API_BASE = IS_LOCAL ? 'http://localhost:3000' : '';   // '' = mismo origen
+var WS_BASE = IS_LOCAL
+  ? 'ws://localhost:3000'
+  : (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
 
 // ─── Cliente HTTP ────────────────────────────────────────────────────────────
 window.ApiClient = {
@@ -102,7 +109,7 @@ window.WsClient = {
   _connect() {
     if (this.ws) { try { this.ws.close(); } catch {} }
     try {
-      this.ws = new WebSocket(`ws://localhost:3000/ws?token=${this._token}`);
+      this.ws = new WebSocket(`${WS_BASE}/ws?token=${this._token}`);
 
       this.ws.onopen = () => {
         this._reconnectDelay = 1000;

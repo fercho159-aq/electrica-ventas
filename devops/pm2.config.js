@@ -10,8 +10,8 @@ module.exports = {
     // ── API principal (Fastify + WebSocket) ─────────────────────────────────
     {
       name: 'electrica-api',
-      cwd: '/var/www/electrica-ventas',
-      script: 'backend/dist/app.js',
+      cwd: '/var/www/electrica-ventas/backend',
+      script: 'dist/app.js',
       instances: 1,                // fork: WebSocket no se reparte bien en cluster sin sticky sessions
       exec_mode: 'fork',
       watch: false,
@@ -32,8 +32,8 @@ module.exports = {
     // ── Worker: mensajes salientes (WhatsApp / SMTP) ────────────────────────
     {
       name: 'electrica-worker-mensajes',
-      cwd: '/var/www/electrica-ventas',
-      script: 'backend/dist/workers/mensaje-saliente.js',
+      cwd: '/var/www/electrica-ventas/backend',
+      script: 'dist/workers/mensaje-saliente.js',
       instances: 1,
       exec_mode: 'fork',
       watch: false,
@@ -51,8 +51,8 @@ module.exports = {
     // ── Worker: campañas masivas ────────────────────────────────────────────
     {
       name: 'electrica-worker-campanas',
-      cwd: '/var/www/electrica-ventas',
-      script: 'backend/dist/workers/campana.js',
+      cwd: '/var/www/electrica-ventas/backend',
+      script: 'dist/workers/campana.js',
       instances: 1,
       exec_mode: 'fork',
       watch: false,
@@ -71,8 +71,8 @@ module.exports = {
     // Comentado por defecto: actívalo solo cuando configures IMAP_* en .env
     // {
     //   name: 'electrica-imap-sync',
-    //   cwd: '/var/www/electrica-ventas',
-    //   script: 'backend/dist/workers/imap-sync.js',
+    //   cwd: '/var/www/electrica-ventas/backend',
+    //   script: 'dist/workers/imap-sync.js',
     //   instances: 1,
     //   exec_mode: 'fork',
     //   watch: false,

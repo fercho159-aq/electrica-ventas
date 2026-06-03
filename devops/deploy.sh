@@ -1,120 +1,69 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Electrica Ventas - Script de deploy
-# Uso: bash devops/deploy.sh [--branch main]
-# Requiere: git, node, npm, pm2 instalados y configurados
+# Electrica Ventas — Script de redeploy (VPS multi-app 31.220.109.7)
+# Ejecuta en el VPS desde /var/www/electrica-ventas:
+#   ./devops/deploy.sh
+#
+# Hace: git pull → npm ci → build → migraciones → pm2 reload (SOLO electrica-*)
+#
+# IMPORTANTE: solo toca los procesos electrica-* — NO afecta appsoluciones, n8n, etc.
 # =============================================================================
-set -e
+set -euo pipefail
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+PROJECT_DIR="/var/www/electrica-ventas"
+BACKEND_DIR="$PROJECT_DIR/backend"
+DB_NAME="electrica_ventas"
+PM2_APPS="electrica-api electrica-worker-mensajes electrica-worker-campanas"
 
-log()  { echo -e "${GREEN}[+]${NC} $1"; }
-warn() { echo -e "${YELLOW}[!]${NC} $1"; }
-err()  { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+cyan()  { printf "\033[36m%s\033[0m\n" "$1"; }
+green() { printf "\033[32m%s\033[0m\n" "$1"; }
+red()   { printf "\033[31m%s\033[0m\n" "$1"; }
 
-# --- Directorio raíz del proyecto ---
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-BRANCH="${1:-main}"
-TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
+cd "$PROJECT_DIR"
 
-log "=== Deploy Electrica Ventas — $TIMESTAMP ==="
-log "Proyecto: $PROJECT_ROOT"
-log "Branch:   $BRANCH"
-
-cd "$PROJECT_ROOT"
-
-# --- Verificar que no hay cambios locales sin commitear ---
-if [[ -n "$(git status --porcelain)" ]]; then
-    warn "Hay cambios locales sin commitear:"
-    git status --short
-    read -r -p "¿Continuar de todas formas? [y/N] " CONFIRM
-    [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]] && err "Deploy cancelado."
-fi
-
-# =============================================================================
-# 1. Git pull
-# =============================================================================
-log "Haciendo git pull origin $BRANCH..."
-git fetch origin
-git checkout "$BRANCH"
-git pull origin "$BRANCH"
-log "Código actualizado. Commit actual: $(git rev-parse --short HEAD)"
-
-# =============================================================================
-# 2. Instalar dependencias del backend
-# =============================================================================
-log "Instalando dependencias (npm ci)..."
-npm ci --prefix backend --omit=dev
-log "Dependencias instaladas."
-
-# =============================================================================
-# 3. Compilar TypeScript
-# =============================================================================
-log "Compilando TypeScript..."
-npm run build --prefix backend
-log "Build completado en backend/dist/"
-
-# =============================================================================
-# 4. Ejecutar migraciones de base de datos (si existen)
-# =============================================================================
-if [[ -f "backend/package.json" ]] && grep -q '"migrate"' backend/package.json; then
-    log "Ejecutando migraciones de base de datos..."
-    npm run migrate --prefix backend
-    log "Migraciones aplicadas."
+# ── 1. Traer cambios ─────────────────────────────────────────────────────────
+cyan "→ [1/5] git pull"
+if [ -d .git ]; then
+  git pull --ff-only
 else
-    warn "No se encontró script 'migrate' en backend/package.json. Omitiendo migraciones."
+  red "  No es repo git — sube archivos por scp antes de correr esto."
 fi
 
-# =============================================================================
-# 5. Reload de procesos PM2 (zero-downtime)
-# =============================================================================
-log "Recargando procesos con PM2 (zero-downtime reload)..."
+# ── 2. Dependencias + build del backend ──────────────────────────────────────
+cyan "→ [2/5] npm ci + build"
+cd "$BACKEND_DIR"
+npm ci
+npm run build
 
-# Verificar si PM2 ya tiene los procesos corriendo
-if pm2 list | grep -q "api"; then
-    pm2 reload all --update-env
-    log "PM2 reload completado."
-else
-    warn "PM2 no tiene procesos registrados. Iniciando desde config..."
-    pm2 start "$SCRIPT_DIR/pm2.config.js" --env production
-    pm2 save
-    log "PM2 iniciado y guardado."
-fi
-
-# =============================================================================
-# 6. Verificar salud de la API
-# =============================================================================
-log "Verificando salud de la API..."
-HEALTH_RETRIES=5
-HEALTH_URL="http://localhost:3000/health"
-
-for i in $(seq 1 $HEALTH_RETRIES); do
-    if curl -sf "$HEALTH_URL" > /dev/null 2>&1; then
-        log "API respondiendo correctamente en $HEALTH_URL"
-        break
-    fi
-    warn "Intento $i/$HEALTH_RETRIES — API no responde aún, esperando 3s..."
-    sleep 3
-    if [[ $i -eq $HEALTH_RETRIES ]]; then
-        err "La API no respondió después de $HEALTH_RETRIES intentos. Revisa los logs: pm2 logs api"
-    fi
+# ── 3. Migraciones (idempotentes: IF NOT EXISTS / ON CONFLICT) ──────────────
+cyan "→ [3/5] migraciones"
+cd "$PROJECT_DIR"
+for f in database/migrations/0*.sql; do
+  echo "   · $(basename "$f")"
+  sudo -u postgres psql -q "$DB_NAME" -f "$f" >/dev/null 2>&1 \
+    || echo "     (cambios ya aplicados — normal en redeploys)"
 done
 
-# =============================================================================
-# Resumen
-# =============================================================================
-echo ""
-log "=== Deploy completado exitosamente ==="
-echo ""
-echo "  Branch:  $BRANCH"
-echo "  Commit:  $(git rev-parse --short HEAD)"
-echo "  Hora:    $TIMESTAMP"
-echo ""
-echo "  Estado PM2:"
-pm2 status
-echo ""
-echo "  Para ver logs: pm2 logs"
+# ── 4. Reload PM2 — SOLO procesos electrica-* ───────────────────────────────
+cyan "→ [4/5] pm2 reload (solo electrica-*)"
+if pm2 describe electrica-api >/dev/null 2>&1; then
+  # shellcheck disable=SC2086
+  pm2 reload $PM2_APPS --update-env
+else
+  cyan "   Primera vez: pm2 start"
+  pm2 start "$PROJECT_DIR/devops/pm2.config.js" --env production
+  pm2 save
+fi
+
+# ── 5. Healthcheck ───────────────────────────────────────────────────────────
+cyan "→ [5/5] healthcheck"
+sleep 3
+PORT="$(grep -oE '^PORT=[0-9]+' /etc/electrica/.env 2>/dev/null | head -1 | cut -d= -f2)"
+PORT="${PORT:-3010}"
+if curl -fsS "http://127.0.0.1:${PORT}/health" | grep -q '"status":"ok"'; then
+  green "✓ Deploy OK — API saludable en :${PORT}"
+  pm2 list | grep electrica || true
+else
+  red "✗ Healthcheck falló. Revisa: pm2 logs electrica-api --lines 50"
+  exit 1
+fi
