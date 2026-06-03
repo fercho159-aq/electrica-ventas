@@ -15,6 +15,7 @@
 <body>
 <div id="root"></div>
 
+<script src="api.js"></script>
 <script type="text/babel" src="data.jsx"></script>
 <script type="text/babel" src="shell.jsx"></script>
 <script type="text/babel" src="ui.jsx"></script>
@@ -50,6 +51,7 @@ function titleFor(r, rol){
 function AppInner() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [isLiveMode, setIsLiveMode] = useState(false);
   const [route, setRoute] = useState('dashboard');
   const [cmdK, setCmdK] = useState(false);
   const [notif, setNotif] = useState(false);
@@ -79,9 +81,10 @@ function AppInner() {
     }
   }, [rol]);
 
-  const onEnter = (r, v) => {
+  const onEnter = (r, v, live = false) => {
     setTweak('rol', r);
     if (v) setTweak('vendedor', v);
+    setIsLiveMode(live);
     setLoggedIn(true);
     setRoute(r === 'gerente' ? 'dashboard' : 'inbox');
   };
@@ -128,7 +131,7 @@ function AppInner() {
         </TopBar>
 
         {route === 'dashboard'    && <Dashboard setRoute={setRoute}/>}
-        {route === 'inbox'        && <Inbox rol={rol} rolVendedor={rolVendedor} setRoute={setRoute}/>}
+        {route === 'inbox'        && <Inbox rol={rol} rolVendedor={rolVendedor} setRoute={setRoute} isLiveMode={isLiveMode}/>}
         {route === 'asignacion'   && <Asignacion/>}
         {route === 'pipeline'     && <Pipeline rol={rol} rolVendedor={rolVendedor}/>}
         {route === 'cotizaciones' && <Cotizaciones rol={rol} rolVendedor={rolVendedor}/>}

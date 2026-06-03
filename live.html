@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<title>Electrica Ventas — Live Inbox</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css?v=3"/>
+<style>
+  body { margin: 0; background: var(--bg, #f5f5f0); font-family: Inter, sans-serif; }
+  .live-wrap { max-width: 960px; margin: 0 auto; padding: 24px; }
+  .live-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .brand-mark { width: 36px; height: 36px; background: #fb1313; border-radius: 8px; display: grid; place-items: center; color: #fff; }
+  .live-title { font-size: 20px; font-weight: 700; }
+  .ws-dot { width: 8px; height: 8px; border-radius: 50%; background: #a8a29e; display: inline-block; margin-right: 6px; }
+  .ws-dot.online { background: #15803d; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .lead-card { background: #fff; border: 1px solid #e5e5e0; border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; }
+  .lead-name { font-weight: 600; font-size: 15px; }
+  .lead-phone { font-family: 'JetBrains Mono'; font-size: 12px; color: #78716c; }
+  .etapa { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; margin-left: 8px; }
+  .etapa-nuevo { background: #f5f5f4; color: #78716c; }
+  .msg-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .msg { padding: 8px 12px; border-radius: 8px; font-size: 13px; max-width: 80%; }
+  .msg-in  { background: #f5f5f4; align-self: flex-start; }
+  .msg-out { background: #0c3547; color: #fff; align-self: flex-end; }
+  .msg-ts  { font-size: 10px; opacity: .5; margin-top: 2px; font-family: 'JetBrains Mono'; }
+  .badge { background: #fb1313; color: #fff; border-radius: 99px; font-size: 11px; padding: 1px 7px; font-weight: 600; }
+  .section-title { font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #78716c; margin: 20px 0 10px; }
+  .empty { color: #a8a29e; font-size: 13px; padding: 20px 0; }
+  .login-box { background: #fff; border: 1px solid #e5e5e0; border-radius: 12px; padding: 32px; max-width: 360px; margin: 80px auto; }
+  .login-box h2 { margin: 0 0 20px; font-size: 18px; }
+  .input { width: 100%; box-sizing: border-box; border: 1px solid #e5e5e0; border-radius: 6px; padding: 8px 10px; font: 14px Inter, sans-serif; margin-bottom: 10px; }
+  .btn-login { width: 100%; background: #fb1313; color: #fff; border: 0; border-radius: 6px; padding: 10px; font: 600 14px Inter, sans-serif; cursor: pointer; }
+  .error { color: #c2410c; font-size: 12px; margin-top: 8px; }
+  #app { display: none; }
+  #login { display: block; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="login-box">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+      <div class="brand-mark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg>
+      </div>
+      <span style="font-weight:700;font-size:16px">Electrica<span style="color:#fb1313">Ventas</span> Live</span>
+    </div>
+    <h2>Iniciar sesión</h2>
+    <input id="email" class="input" type="email" placeholder="gerencia@electrica.mx" value="gerencia@electrica.mx"/>
+    <input id="pass" class="input" type="password" placeholder="Contraseña" value="Admin2024!"/>
+    <button class="btn-login" onclick="doLogin()">Entrar</button>
+    <div id="login-err" class="error"></div>
+  </div>
+</div>
+
+<!-- LIVE APP -->
+<div id="app">
+  <div class="live-wrap">
+    <div class="live-header">
+      <div class="brand-mark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg>
+      </div>
+      <div>
+        <div class="live-title">Electrica<span style="color:#fb1313">Ventas</span> — Bandeja Live</div>
+        <div style="font-size:12px;color:#78716c"><span class="ws-dot" id="ws-dot"></span><span id="ws-status">Conectando…</span></div>
+      </div>
+      <div style="margin-left:auto;font-size:13px;color:#78716c" id="user-info"></div>
+    </div>
+
+    <div id="leads-section">
+      <div class="section-title">Leads y mensajes <span id="leads-count" class="badge" style="display:none"></span></div>
+      <div id="leads-list"><div class="empty">Cargando…</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:3000'
+let token = '', refreshToken = '', ws = null, leadsMap = {}
+
+async function doLogin() {
+  const email = document.getElementById('email').value
+  const pass  = document.getElementById('pass').value
+  const err   = document.getElementById('login-err')
+  err.textContent = ''
+  try {
+    const r = await fetch(`${API}/api/auth/login`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email, password: pass})
+    })
+    if (!r.ok) throw new Error('Credenciales incorrectas')
+    const d = await r.json()
+    token = d.accessToken
+    refreshToken = d.refreshToken
+    document.getElementById('user-info').textContent = d.usuario?.nombre ?? d.user?.nombre ?? email
+    document.getElementById('login').style.display = 'none'
+    document.getElementById('app').style.display = 'block'
+    loadLeads()
+    connectWS()
+    setInterval(loadLeads, 5000)
+  } catch(e) {
+    err.textContent = e.message
+  }
+}
+
+async function apiFetch(path) {
+  const r = await fetch(`${API}${path}`, {headers:{Authorization:`Bearer ${token}`}})
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json()
+}
+
+async function loadLeads() {
+  try {
+    const {data} = await apiFetch('/api/leads?limit=20')
+    leadsMap = {}
+    data.forEach(l => leadsMap[l.id] = l)
+    renderLeads(data)
+  } catch(e) { console.error('loadLeads', e) }
+}
+
+async function loadMensajes(leadId) {
+  try {
+    const {data} = await apiFetch(`/api/leads/${leadId}/mensajes`)
+    return data
+  } catch { return [] }
+}
+
+async function renderLeads(leads) {
+  const container = document.getElementById('leads-list')
+  const badge = document.getElementById('leads-count')
+
+  if (!leads.length) {
+    container.innerHTML = '<div class="empty">Sin leads aún. Envía un WhatsApp al número de prueba.</div>'
+    badge.style.display = 'none'
+    return
+  }
+
+  badge.textContent = leads.length
+  badge.style.display = 'inline-block'
+
+  const cards = await Promise.all(leads.map(async l => {
+    const msgs = await loadMensajes(l.id)
+    const msgsHtml = msgs.map(m => {
+      const isOut = m.direccion === 'saliente'
+      const ts = new Date(m.ts).toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'})
+      return `<div class="msg ${isOut?'msg-out':'msg-in'}">
+        ${m.texto ?? '[media]'}
+        <div class="msg-ts">${ts} ${isOut?'·':'←'} ${m.origen}</div>
+      </div>`
+    }).join('')
+
+    const etapaColor = {nuevo:'#78716c',contactado:'#0369a1',cotizado:'#a16207',negociacion:'#c2410c',cerrado:'#15803d',no_cierre:'#9f1239'}
+    const ts = new Date(l.ultima_interaccion).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})
+
+    return `<div class="lead-card" id="lead-${l.id}">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <span class="lead-name">${l.contacto}</span>
+          <span class="etapa" style="background:${etapaColor[l.etapa]}20;color:${etapaColor[l.etapa]}">${l.etapa}</span>
+        </div>
+        <span style="font-size:11px;color:#a8a29e;font-family:JetBrains Mono">${ts}</span>
+      </div>
+      <div class="lead-phone">${l.telefono ?? ''} ${l.canal?.nombre ? '· '+l.canal.nombre : ''}</div>
+      ${msgsHtml ? `<div class="msg-list">${msgsHtml}</div>` : ''}
+    </div>`
+  }))
+
+  container.innerHTML = cards.join('')
+}
+
+function connectWS() {
+  const dot = document.getElementById('ws-dot')
+  const status = document.getElementById('ws-status')
+
+  ws = new WebSocket(`ws://localhost:3000/ws?token=${token}`)
+
+  ws.onopen = () => {
+    dot.className = 'ws-dot online'
+    status.textContent = 'En línea — actualizaciones en tiempo real'
+  }
+
+  ws.onmessage = (e) => {
+    try {
+      const event = JSON.parse(e.data)
+      if (event.type === 'new_message' || event.type === 'new_lead' || event.type === 'lead_updated') {
+        loadLeads()
+        flash()
+      }
+    } catch {}
+  }
+
+  ws.onclose = () => {
+    dot.className = 'ws-dot'
+    status.textContent = 'Desconectado — reconectando…'
+    setTimeout(connectWS, 3000)
+  }
+}
+
+function flash() {
+  document.title = '🔴 Nuevo mensaje — Electrica Ventas'
+  setTimeout(() => { document.title = 'Electrica Ventas — Live Inbox' }, 3000)
+}
+</script>
+</body>
+</html>

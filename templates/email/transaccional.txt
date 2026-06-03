@@ -1,0 +1,142 @@
+================================================================================
+ELECTRICA VENTAS S.A. DE C.V.
+Materiales Eléctricos para Profesionales
+================================================================================
+
+
+================================================================================
+PLANTILLA 1 — EMAIL DE COTIZACIÓN (Texto Plano / Fallback)
+================================================================================
+
+Asunto: Cotización {{folio}} - Electrica Ventas
+
+--
+
+Estimado(a) {{nombre_cliente}}:
+
+Le hacemos llegar la cotización que preparamos con base en sus requerimientos.
+
+FOLIO:          {{folio}}
+FECHA:          {{fecha_emision}}
+VÁLIDA HASTA:   {{fecha_vencimiento}} ({{dias_vigencia}} días naturales)
+CLIENTE:        {{nombre_cliente}}
+EMPRESA:        {{empresa}}
+RFC:            {{rfc}}
+
+------------------------------------------------------------------------
+DETALLE DE PRODUCTOS
+------------------------------------------------------------------------
+
+Núm.  Descripción                          Cant.    P.Unit.     Subtotal
+----  -----------------------------------  -------  ----------  ----------
+  1   {{descripcion_producto_1}}           {{cantidad_1}} {{unidad_1}}  ${{precio_unit_1}}  ${{subtotal_1}}
+  2   {{descripcion_producto_2}}           {{cantidad_2}} {{unidad_2}}  ${{precio_unit_2}}  ${{subtotal_2}}
+  3   {{descripcion_producto_3}}           {{cantidad_3}} {{unidad_3}}  ${{precio_unit_3}}  ${{subtotal_3}}
+
+------------------------------------------------------------------------
+                                             Subtotal:    ${{subtotal_general}}
+                                    Descuento ({{descuento_pct}}%):  -${{descuento_monto}}
+                                              IVA (16%):   ${{iva_monto}}
+                                              TOTAL:       ${{total_general}} MXN
+------------------------------------------------------------------------
+
+NOTAS Y CONDICIONES DE VENTA:
+- Precios en pesos mexicanos (MXN), IVA incluido según se indica.
+- Tiempo de entrega: {{dias_entrega}} días hábiles tras confirmación de pago.
+- Forma de pago: {{forma_pago}}.
+- Condición de flete: {{condicion_flete}}.
+- Los precios están sujetos a disponibilidad de stock al momento de confirmar.
+- {{nota_adicional}}
+
+------------------------------------------------------------------------
+SU EJECUTIVO DE CUENTA
+------------------------------------------------------------------------
+
+{{nombre_vendedor}}
+{{cargo_vendedor}} | Electrica Ventas
+Tel: {{tel_vendedor}}
+WhatsApp: {{wa_vendedor}}
+Email: {{email_vendedor}}
+
+Para confirmar esta cotización o solicitar ajustes, responda este correo
+o contáctenos directamente por los medios indicados.
+
+------------------------------------------------------------------------
+ELECTRICA VENTAS S.A. DE C.V.
+RFC: {{rfc_empresa}}
+{{direccion_empresa}}
+Tel: {{tel_empresa}}
+ventas@electricaventas.com.mx | www.electricaventas.com.mx
+
+Este correo y sus adjuntos son confidenciales y están dirigidos al
+destinatario indicado. Si lo recibió por error, notifíquenos y elimínelo.
+Aviso de Privacidad: {{url_privacidad}}
+================================================================================
+
+
+================================================================================
+PLANTILLA 2 — EMAIL DE SEGUIMIENTO (Texto Plano / Fallback)
+================================================================================
+
+Asunto: [RECORDATORIO] Tu cotización {{folio}} vence en {{dias_restantes}} día(s)
+
+--
+
+Estimado(a) {{nombre_cliente}}:
+
+Le recordamos que la cotización que preparamos para usted está próxima a vencer.
+
+ESTADO DEL RECORDATORIO:
+  Días restantes:   {{dias_restantes}} día(s)
+  Válida hasta:     {{fecha_vencimiento}}
+
+------------------------------------------------------------------------
+RESUMEN DE COTIZACIÓN
+------------------------------------------------------------------------
+
+Folio:          {{folio}}
+Fecha emitida:  {{fecha_emision}}
+Válida hasta:   {{fecha_vencimiento}}
+Monto total:    ${{total_general}} MXN
+
+Productos incluidos:
+  - {{descripcion_producto_1}} .............. ${{subtotal_1}}
+  - {{descripcion_producto_2}} .............. ${{subtotal_2}}
+  - {{descripcion_producto_3}} .............. ${{subtotal_3}}
+  + {{items_adicionales}} producto(s) más en la cotización completa.
+
+------------------------------------------------------------------------
+¿POR QUÉ CONFIRMAR HOY?
+
+Los precios cotizados y la disponibilidad de materiales están garantizados
+hasta la fecha de vencimiento. Confirmar antes de que expire le asegura:
+
+  - El precio tal como se cotizó
+  - Que el material quede apartado para su proyecto
+  - Atención prioritaria en la preparación del pedido
+
+------------------------------------------------------------------------
+CÓMO CONFIRMAR O SOLICITAR AJUSTES
+
+  Confirmar cotización:    {{url_confirmar_cotizacion}}
+  Solicitar ajustes:       {{url_solicitar_ajustes}}
+  Responder este correo con "CONFIRMO" o "AJUSTE"
+
+O bien, contacte directamente a su asesor asignado:
+
+  {{nombre_vendedor}}
+  {{cargo_vendedor}} | Electrica Ventas
+  WhatsApp: {{wa_vendedor}}
+  Tel:      {{tel_vendedor}}
+  Email:    {{email_vendedor}}
+
+------------------------------------------------------------------------
+ELECTRICA VENTAS S.A. DE C.V.
+{{direccion_empresa}}
+Tel: {{tel_empresa}}
+ventas@electricaventas.com.mx | www.electricaventas.com.mx
+
+Recibe este mensaje porque tiene una cotización activa con nosotros.
+Para no recibir más recordatorios: {{url_unsubscribe}}
+Aviso de Privacidad: {{url_privacidad}}
+================================================================================

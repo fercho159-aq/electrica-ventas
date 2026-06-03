@@ -1,0 +1,64 @@
+{
+  "grupos": [
+    {
+      "id": "construccion",
+      "nombre": "WA-Construcción",
+      "lineas": [1, 2, 3, 4],
+      "numeros": ["WA-CON-01", "WA-CON-02", "WA-CON-03", "WA-CON-04"],
+      "perfil_cliente": "Constructoras, contratistas generales, residentes de obra, arquitectos e ingenieros que manejan proyectos de edificación residencial y comercial.",
+      "tono": "formal-técnico",
+      "descripcion_tono": "Lenguaje preciso con terminología de la construcción. Mensajes estructurados que transmiten confianza técnica. Se evitan coloquialismos. Se privilegia la exactitud en especificaciones: calibres, normas NOM, marcas homologadas.",
+      "firma": "Especialista en Construcción | Electrica Ventas",
+      "saludo_preferido": "Estimado(a) {{nombre}}",
+      "estilo_respuesta": "Respuestas detalladas con referencias a normas, fichas técnicas disponibles y soporte post-venta. Énfasis en cumplimiento normativo y trazabilidad de materiales.",
+      "palabras_clave": ["proyecto", "especificación", "norma NOM", "planos", "residencia", "obra"],
+      "evitar": ["¡Hola!", "¿Cómo estás?", "Super", "Ok"],
+      "tiempo_respuesta_objetivo_min": 10
+    },
+    {
+      "id": "industrial",
+      "nombre": "WA-Industrial",
+      "lineas": [5, 6, 7, 8],
+      "numeros": ["WA-IND-01", "WA-IND-02", "WA-IND-03", "WA-IND-04"],
+      "perfil_cliente": "Gerentes de mantenimiento, responsables de compras industriales, ingenieros eléctricos de planta, empresas manufactureras y del sector automotriz.",
+      "tono": "consultivo-técnico",
+      "descripcion_tono": "Abordaje de asesoría: escuchar primero, recomendar después. Lenguaje técnico pero accesible. Se hacen preguntas para entender el proceso productivo y recomendar la solución óptima. No se vende producto, se vende continuidad operativa.",
+      "firma": "Asesor Industrial | Electrica Ventas",
+      "saludo_preferido": "Hola {{nombre}}, gracias por contactarnos",
+      "estilo_respuesta": "Diagnóstico antes de cotizar. Preguntas sobre voltaje, carga instalada, ambiente (húmedo, explosivo, temperatura). Propuesta técnica con justificación. Disponibilidad de visita técnica a planta.",
+      "palabras_clave": ["planta", "paro de línea", "mantenimiento", "carga instalada", "tablero", "arranque"],
+      "evitar": ["barato", "económico", "solo tenemos esto"],
+      "tiempo_respuesta_objetivo_min": 8
+    },
+    {
+      "id": "distribucion",
+      "nombre": "WA-Distribución",
+      "lineas": [9, 10, 11],
+      "numeros": ["WA-DIS-01", "WA-DIS-02", "WA-DIS-03"],
+      "perfil_cliente": "Distribuidores eléctricos, ferreterías especializadas, centros de materiales, revendedores y tiendas de material eléctrico.",
+      "tono": "ágil-directo",
+      "descripcion_tono": "Comunicación rápida y al grano. El distribuidor conoce el producto, no necesita explicaciones básicas. Lo que necesita es precio, disponibilidad y tiempo de entrega. Respuestas en menos de 5 minutos. Lenguaje de negocio entre pares.",
+      "firma": "Ventas Distribuidores | Electrica Ventas",
+      "saludo_preferido": "Hola {{nombre}}",
+      "estilo_respuesta": "Precio + disponibilidad + tiempo entrega en el primer mensaje. Si hay lista de precios, se comparte de inmediato. Descuentos por volumen explícitos. Sin rodeos.",
+      "palabras_clave": ["lista de precios", "volumen", "paquete", "lote", "disponible", "stock"],
+      "evitar": ["déjame checarlo", "te mando info después", "tengo que preguntar"],
+      "tiempo_respuesta_objetivo_min": 5
+    },
+    {
+      "id": "corporativo",
+      "nombre": "WA-Corporativo",
+      "lineas": [12, 13, 14],
+      "numeros": ["WA-COR-01", "WA-COR-02", "WA-COR-03"],
+      "perfil_cliente": "Directores de operaciones, gerentes de compras corporativas, CFOs y tomadores de decisión de grandes empresas con proyectos de infraestructura eléctrica.",
+      "tono": "ejecutivo",
+      "descripcion_tono": "Comunicación de alto nivel. Mensajes concisos y orientados a resultados de negocio. Se habla de ROI, eficiencia operativa, continuidad de servicio y relaciones de largo plazo. Propuestas formales con respaldo documental.",
+      "firma": "Ejecutivo de Proyectos | Electrica Ventas",
+      "saludo_preferido": "Estimado {{nombre}}",
+      "estilo_respuesta": "Propuestas estructuradas con resumen ejecutivo. Oferta de cuenta dedicada con condiciones comerciales especiales. Disponibilidad de reunión virtual o presencial. Énfasis en valor agregado: asesoría, garantías, crédito.",
+      "palabras_clave": ["proyecto", "cuenta corporativa", "contrato marco", "crédito", "eficiencia", "ROI"],
+      "evitar": ["¿cuánto tienes de presupuesto?", "es que depende", "básicamente"],
+      "tiempo_respuesta_objetivo_min": 15
+    }
+  ]
+}

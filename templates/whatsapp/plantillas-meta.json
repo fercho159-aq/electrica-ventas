@@ -1,0 +1,166 @@
+[
+  {
+    "name": "ev_bienvenida_lead",
+    "category": "UTILITY",
+    "language": "es_MX",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, gracias por contactar a Electrica Ventas. Un especialista revisará tu solicitud en los próximos minutos. ¿En qué te podemos apoyar hoy?",
+        "example": {
+          "body_text": [["Carlos"]]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "Electrica Ventas · Materiales Eléctricos"
+      }
+    ]
+  },
+  {
+    "name": "ev_cotizacion_enviada",
+    "category": "UTILITY",
+    "language": "es_MX",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "TEXT",
+        "text": "Tu cotización está lista"
+      },
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, te hemos enviado la cotización {{2}} con los productos solicitados. Vigencia: {{3}} días. Cualquier ajuste, con gusto lo atendemos.",
+        "example": {
+          "body_text": [["Carlos", "COT-2024-0458", "7"]]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "Electrica Ventas · Responde este mensaje para cualquier duda"
+      }
+    ]
+  },
+  {
+    "name": "ev_seguimiento_24h",
+    "category": "UTILITY",
+    "language": "es_MX",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, estamos pendientes de tu respuesta sobre la cotización que te enviamos. ¿Tienes alguna duda o necesitas ajustar algo? Estamos para ayudarte.",
+        "example": {
+          "body_text": [["Carlos"]]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "Electrica Ventas · Atención Lunes a Viernes 8:00–19:00"
+      }
+    ]
+  },
+  {
+    "name": "ev_remarketing_precio",
+    "category": "MARKETING",
+    "language": "es_MX",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, tenemos una promoción especial en {{2}} y los demás materiales que cotizaste. Con compra a volumen aplicamos descuento adicional. ¿Te interesa que te regeneremos la cotización?",
+        "example": {
+          "body_text": [["Carlos", "Cable THW calibre 12"]]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "Electrica Ventas · Responde SI para recibir tu nueva cotización"
+      }
+    ]
+  },
+  {
+    "name": "ev_remarketing_entrega",
+    "category": "MARKETING",
+    "language": "es_MX",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, sabemos que el tiempo de entrega fue un factor. Ahora contamos con entrega express en 24h dentro de zona metropolitana. ¿Quieres que revisemos tu pedido anterior?",
+        "example": {
+          "body_text": [["Carlos"]]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "Electrica Ventas · Entrega express disponible en CDMX y área metropolitana"
+      }
+    ]
+  },
+  {
+    "name": "ev_remarketing_competencia",
+    "category": "MARKETING",
+    "language": "es_MX",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, si encontraste mejor precio en otra proveedora, compártenos la cotización y hacemos match o mejoramos el precio. Calidad garantizada y entrega inmediata.",
+        "example": {
+          "body_text": [["Carlos"]]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "Electrica Ventas · Garantía de mejor precio"
+      }
+    ]
+  },
+  {
+    "name": "ev_remarketing_presupuesto",
+    "category": "MARKETING",
+    "language": "es_MX",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, tenemos financiamiento a 30-60 días sin intereses para tu pedido de {{2}}. ¿Te ayudamos a estructurar el pago para que puedas arrancar el proyecto?",
+        "example": {
+          "body_text": [["Carlos", "$45,000 MXN"]]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "Electrica Ventas · Sujeto a aprobación de crédito"
+      }
+    ]
+  },
+  {
+    "name": "ev_fuera_horario",
+    "category": "UTILITY",
+    "language": "es_MX",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Gracias por escribirnos. Nuestro horario de atención es Lunes a Viernes 8:00–19:00 y Sábados 8:00–14:00 hrs. Tu mensaje quedó registrado y te contactaremos en cuanto estemos en línea."
+      },
+      {
+        "type": "FOOTER",
+        "text": "Electrica Ventas · Atención personalizada garantizada"
+      }
+    ]
+  },
+  {
+    "name": "ev_asignacion_vendedor",
+    "category": "UTILITY",
+    "language": "es_MX",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hola {{1}}, te saluda {{2}} de Electrica Ventas. Seré tu ejecutivo de cuenta. Quedo a tus órdenes para lo que necesites.",
+        "example": {
+          "body_text": [["Carlos", "Rodrigo Martínez"]]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "Electrica Ventas · Tu especialista asignado"
+      }
+    ]
+  }
+]

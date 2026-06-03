@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Tu cotización {{folio}} está por vencer - Electrica Ventas</title>
+  <style>
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: Arial, Helvetica, sans-serif; }
+
+    .email-wrapper { width: 100%; background-color: #f4f4f4; padding: 20px 0; }
+    .email-container { max-width: 580px; margin: 0 auto; background-color: #ffffff; border-radius: 4px; overflow: hidden; }
+
+    /* Header urgencia */
+    .header-urgencia { background-color: #E67E22; padding: 6px 32px; text-align: center; }
+    .header-urgencia p { margin: 0; color: #ffffff; font-size: 12px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; }
+
+    /* Header marca */
+    .header { background-color: #C0392B; padding: 24px 32px; }
+    .header-inner { width: 100%; }
+    .logo-cell img { max-height: 40px; width: auto; display: block; }
+    .logo-text { color: #ffffff; font-size: 20px; font-weight: bold; }
+    .tagline-cell { text-align: right; vertical-align: middle; }
+    .tagline { color: rgba(255,255,255,0.8); font-size: 11px; }
+
+    /* Hero */
+    .hero { padding: 36px 32px 24px; text-align: center; }
+    .dias-badge { display: inline-block; background-color: #FFF3E0; border: 2px solid #E67E22; border-radius: 50%; width: 88px; height: 88px; line-height: 84px; font-size: 36px; font-weight: bold; color: #C0392B; margin-bottom: 16px; }
+    .hero h1 { color: #1a1a1a; font-size: 22px; margin: 0 0 10px 0; line-height: 1.3; }
+    .hero p { color: #555555; font-size: 14px; line-height: 1.6; margin: 0; }
+
+    /* Resumen cotización */
+    .resumen { background-color: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 4px; margin: 0 32px 28px; padding: 20px 24px; }
+    .resumen h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #888888; margin: 0 0 16px 0; }
+    .resumen table { width: 100%; border-collapse: collapse; }
+    .resumen td { font-size: 13px; color: #333333; padding: 6px 0; border-bottom: 1px solid #eeeeee; vertical-align: middle; }
+    .resumen td:last-child { text-align: right; border-bottom: 1px solid #eeeeee; }
+    .resumen tr:last-child td { border-bottom: none; }
+    .resumen .label-r { color: #888888; font-size: 12px; }
+    .resumen .monto { font-weight: bold; font-size: 18px; color: #C0392B; font-family: 'Courier New', Courier, monospace; }
+    .resumen .dias-restantes { font-weight: bold; color: #E67E22; }
+
+    /* Urgencia visual */
+    .urgencia-bar { margin: 0 32px 24px; background-color: #FFF3E0; border-left: 4px solid #E67E22; padding: 12px 16px; border-radius: 0 4px 4px 0; }
+    .urgencia-bar p { margin: 0; font-size: 13px; color: #7f4000; line-height: 1.5; }
+    .urgencia-bar strong { color: #E67E22; }
+
+    /* CTAs */
+    .ctas { padding: 4px 32px 28px; text-align: center; }
+    .btn-primary { display: inline-block; background-color: #C0392B; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: bold; padding: 14px 32px; border-radius: 4px; margin: 6px 8px; letter-spacing: 0.3px; }
+    .btn-secondary { display: inline-block; background-color: #ffffff; color: #C0392B; text-decoration: none; font-size: 14px; font-weight: bold; padding: 13px 28px; border-radius: 4px; margin: 6px 8px; border: 2px solid #C0392B; letter-spacing: 0.3px; }
+    .ctas-note { font-size: 12px; color: #999999; margin-top: 12px; }
+
+    /* Productos resumen */
+    .productos-mini { margin: 0 32px 28px; }
+    .productos-mini h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #888888; margin: 0 0 10px 0; }
+    .productos-mini table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .productos-mini td { padding: 7px 8px; color: #444444; border-bottom: 1px solid #f0f0f0; }
+    .productos-mini td:last-child { text-align: right; color: #C0392B; font-weight: bold; }
+    .productos-mini tr:last-child td { border-bottom: none; }
+    .productos-mini .mas-items { text-align: center; color: #999999; font-size: 12px; padding: 8px 0 0; font-style: italic; }
+
+    /* Contacto directo */
+    .contacto-directo { margin: 0 32px 28px; text-align: center; }
+    .contacto-directo p { font-size: 13px; color: #666666; margin: 0 0 12px 0; }
+    .contacto-directo a.wa-link { display: inline-block; background-color: #25D366; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: bold; padding: 10px 24px; border-radius: 4px; margin: 0 4px; }
+    .contacto-directo a.tel-link { display: inline-block; background-color: #f0f0f0; color: #333333; text-decoration: none; font-size: 13px; font-weight: bold; padding: 10px 24px; border-radius: 4px; margin: 0 4px; }
+
+    /* Firma */
+    .firma-mini { padding: 0 32px 24px; border-top: 1px solid #eeeeee; padding-top: 20px; }
+    .firma-avatar-sm { width: 44px; height: 44px; background-color: #C0392B; border-radius: 50%; text-align: center; line-height: 44px; color: #ffffff; font-size: 16px; font-weight: bold; }
+    .firma-mini td { font-size: 13px; color: #444444; vertical-align: middle; }
+    .firma-nombre-sm { font-weight: bold; color: #1a1a1a; font-size: 14px; display: block; }
+    .firma-cargo-sm { font-size: 11px; color: #C0392B; text-transform: uppercase; letter-spacing: 0.3px; display: block; }
+
+    /* Footer */
+    .footer { background-color: #1a1a1a; padding: 18px 32px; }
+    .footer td { font-size: 11px; color: #888888; line-height: 1.6; }
+    .footer a { color: #aaaaaa; text-decoration: none; }
+    .footer .empresa { color: #ffffff; font-weight: bold; }
+    .footer-divider { border: none; border-top: 1px solid #333333; margin: 10px 0; }
+
+    @media only screen and (max-width: 480px) {
+      .email-container { width: 100% !important; }
+      .hero, .ctas, .firma-mini { padding-left: 16px !important; padding-right: 16px !important; }
+      .resumen, .urgencia-bar, .ctas, .productos-mini, .contacto-directo { margin-left: 16px !important; margin-right: 16px !important; }
+      .btn-primary, .btn-secondary { display: block !important; margin: 6px 0 !important; }
+      .dias-badge { width: 72px; height: 72px; line-height: 68px; font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="email-wrapper">
+    <table class="email-container" width="580" cellpadding="0" cellspacing="0" role="presentation">
+
+      <!-- BARRA DE URGENCIA -->
+      <tr>
+        <td class="header-urgencia">
+          <p>Tu cotización vence en {{dias_restantes}} día(s) — Actúa antes de que expire</p>
+        </td>
+      </tr>
+
+      <!-- HEADER MARCA -->
+      <tr>
+        <td class="header">
+          <table class="header-inner" cellpadding="0" cellspacing="0" role="presentation">
+            <tr>
+              <td class="logo-cell">
+                <img src="https://via.placeholder.com/140x40/C0392B/ffffff?text=ELECTRICA+VENTAS"
+                     alt="Electrica Ventas" width="140" height="40"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <span class="logo-text" style="display:none;">Electrica Ventas</span>
+              </td>
+              <td class="tagline-cell">
+                <p class="tagline">Seguimiento de cotización</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- HERO -->
+      <tr>
+        <td class="hero">
+          <div class="dias-badge">{{dias_restantes}}</div>
+          <h1>{{nombre_cliente}}, tu cotización está por vencer</h1>
+          <p>Preparamos esta cotización pensando en tus necesidades. No la dejes vencer — confirma hoy y aseguras precio y disponibilidad de los materiales.</p>
+        </td>
+      </tr>
+
+      <!-- RESUMEN COTIZACIÓN -->
+      <tr>
+        <td>
+          <div class="resumen">
+            <h3>Resumen de tu cotización</h3>
+            <table cellpadding="0" cellspacing="0" role="presentation">
+              <tr>
+                <td class="label-r">Folio</td>
+                <td><strong>{{folio}}</strong></td>
+              </tr>
+              <tr>
+                <td class="label-r">Fecha de emisión</td>
+                <td>{{fecha_emision}}</td>
+              </tr>
+              <tr>
+                <td class="label-r">Válida hasta</td>
+                <td><strong style="color:#E67E22;">{{fecha_vencimiento}}</strong></td>
+              </tr>
+              <tr>
+                <td class="label-r">Días restantes</td>
+                <td class="dias-restantes">{{dias_restantes}} día(s)</td>
+              </tr>
+              <tr>
+                <td class="label-r">Monto total</td>
+                <td class="monto">$\{{total_general}} MXN</td>
+              </tr>
+            </table>
+          </div>
+        </td>
+      </tr>
+
+      <!-- BARRA DE URGENCIA CONTENIDO -->
+      <tr>
+        <td>
+          <div class="urgencia-bar">
+            <p>Los precios y la disponibilidad de los materiales pueden cambiar. <strong>Confirmar hoy te garantiza el precio cotizado</strong> y que el material quede apartado para tu proyecto.</p>
+          </div>
+        </td>
+      </tr>
+
+      <!-- PRODUCTOS EN MINI RESUMEN -->
+      <tr>
+        <td>
+          <div class="productos-mini">
+            <h4>Productos cotizados</h4>
+            <table cellpadding="0" cellspacing="0" role="presentation">
+              <tr>
+                <td>{{descripcion_producto_1}}</td>
+                <td>$\{{subtotal_1}}</td>
+              </tr>
+              <tr>
+                <td>{{descripcion_producto_2}}</td>
+                <td>$\{{subtotal_2}}</td>
+              </tr>
+              <tr>
+                <td>{{descripcion_producto_3}}</td>
+                <td>$\{{subtotal_3}}</td>
+              </tr>
+              <tr>
+                <td colspan="2" class="mas-items">+ {{items_adicionales}} producto(s) más en la cotización completa</td>
+              </tr>
+            </table>
+          </div>
+        </td>
+      </tr>
+
+      <!-- CTAs PRINCIPALES -->
+      <tr>
+        <td class="ctas">
+          <a href="{{url_confirmar_cotizacion}}" class="btn-primary">Confirmar cotización</a>
+          <a href="{{url_solicitar_ajustes}}" class="btn-secondary">Solicitar ajustes</a>
+          <p class="ctas-note">¿Necesitas más tiempo? Responde este correo y lo resolvemos.</p>
+        </td>
+      </tr>
+
+      <!-- CONTACTO DIRECTO -->
+      <tr>
+        <td>
+          <div class="contacto-directo">
+            <p>O contáctanos directamente con tu asesor asignado:</p>
+            <a href="https://wa.me/{{wa_vendedor}}?text=Hola%20{{nombre_vendedor}}%2C%20quiero%20confirmar%20la%20cotización%20{{folio}}" class="wa-link">WhatsApp</a>
+            <a href="tel:{{tel_vendedor}}" class="tel-link">Llamar</a>
+          </div>
+        </td>
+      </tr>
+
+      <!-- FIRMA VENDEDOR -->
+      <tr>
+        <td class="firma-mini">
+          <table cellpadding="0" cellspacing="0" role="presentation">
+            <tr>
+              <td style="width:60px; padding-right:14px;">
+                <div class="firma-avatar-sm">{{iniciales_vendedor}}</div>
+              </td>
+              <td>
+                <span class="firma-nombre-sm">{{nombre_vendedor}}</span>
+                <span class="firma-cargo-sm">{{cargo_vendedor}} | Electrica Ventas</span>
+                <span style="font-size:12px; color:#666666;">{{tel_vendedor}} &nbsp;|&nbsp; {{email_vendedor}}</span>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- FOOTER -->
+      <tr>
+        <td class="footer">
+          <table cellpadding="0" cellspacing="0" role="presentation">
+            <tr>
+              <td>
+                <p class="empresa">Electrica Ventas S.A. de C.V.</p>
+                <p>{{direccion_empresa}} &nbsp;|&nbsp; Tel: {{tel_empresa}}<br>
+                   <a href="mailto:ventas@electricaventas.com.mx">ventas@electricaventas.com.mx</a> &nbsp;|&nbsp;
+                   <a href="https://www.electricaventas.com.mx">www.electricaventas.com.mx</a>
+                </p>
+                <hr class="footer-divider">
+                <p>Recibes este recordatorio porque tienes una cotización activa con nosotros.
+                   Si no deseas recibir más notificaciones, <a href="{{url_unsubscribe}}">cancela aquí</a>.
+                   &nbsp;|&nbsp; <a href="{{url_privacidad}}">Aviso de Privacidad</a>
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+    </table>
+  </div>
+</body>
+</html>

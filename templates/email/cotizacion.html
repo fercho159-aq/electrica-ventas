@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Cotización {{folio}} - Electrica Ventas</title>
+  <style>
+    /* Reset básico compatible con Outlook */
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+    body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: Arial, Helvetica, sans-serif; }
+
+    /* Wrapper */
+    .email-wrapper { width: 100%; background-color: #f4f4f4; padding: 20px 0; }
+    .email-container { max-width: 620px; margin: 0 auto; background-color: #ffffff; border-radius: 4px; overflow: hidden; }
+
+    /* Header */
+    .header { background-color: #C0392B; padding: 28px 32px; }
+    .header-inner { width: 100%; }
+    .logo-cell { vertical-align: middle; }
+    .logo-cell img { max-height: 48px; width: auto; display: block; }
+    .logo-text { color: #ffffff; font-size: 22px; font-weight: bold; letter-spacing: 0.5px; }
+    .tagline-cell { vertical-align: middle; text-align: right; }
+    .tagline { color: rgba(255,255,255,0.85); font-size: 12px; line-height: 1.4; }
+
+    /* Folio banner */
+    .folio-bar { background-color: #1a1a1a; padding: 10px 32px; }
+    .folio-bar td { color: #ffffff; font-size: 13px; }
+    .folio-bar .folio-num { font-weight: bold; color: #FFD700; font-size: 15px; }
+
+    /* Content */
+    .content { padding: 32px; }
+    h2 { color: #1a1a1a; font-size: 18px; margin: 0 0 16px 0; }
+    p { color: #444444; font-size: 14px; line-height: 1.6; margin: 0 0 12px 0; }
+
+    /* Datos cliente */
+    .datos-cliente { background-color: #f9f9f9; border-left: 4px solid #C0392B; padding: 16px 20px; margin-bottom: 28px; border-radius: 0 4px 4px 0; }
+    .datos-cliente table { width: 100%; border-collapse: collapse; }
+    .datos-cliente td { font-size: 13px; color: #333333; padding: 4px 8px 4px 0; vertical-align: top; }
+    .datos-cliente .label { font-weight: bold; color: #888888; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; width: 120px; }
+
+    /* Tabla de productos */
+    .productos-section { margin-bottom: 28px; }
+    .productos-section h3 { color: #1a1a1a; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 12px 0; }
+    .tabla-productos { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .tabla-productos thead tr { background-color: #C0392B; }
+    .tabla-productos thead td { color: #ffffff; font-weight: bold; padding: 10px 12px; text-align: left; }
+    .tabla-productos thead td.num { text-align: center; width: 36px; }
+    .tabla-productos thead td.cant { text-align: center; width: 70px; }
+    .tabla-productos thead td.precio { text-align: right; width: 100px; }
+    .tabla-productos thead td.subtotal { text-align: right; width: 100px; }
+    .tabla-productos tbody tr:nth-child(even) { background-color: #fafafa; }
+    .tabla-productos tbody tr:hover { background-color: #fff4f4; }
+    .tabla-productos tbody td { padding: 10px 12px; color: #333333; border-bottom: 1px solid #eeeeee; vertical-align: top; }
+    .tabla-productos tbody td.num { text-align: center; color: #aaaaaa; font-size: 12px; }
+    .tabla-productos tbody td.cant { text-align: center; }
+    .tabla-productos tbody td.precio { text-align: right; font-family: 'Courier New', Courier, monospace; }
+    .tabla-productos tbody td.subtotal { text-align: right; font-family: 'Courier New', Courier, monospace; font-weight: bold; }
+    .tabla-productos .sku { font-size: 11px; color: #999999; display: block; margin-top: 2px; }
+
+    /* Totales */
+    .totales-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    .totales-table td { padding: 6px 12px; font-size: 13px; color: #444444; }
+    .totales-table .label-col { text-align: right; }
+    .totales-table .value-col { text-align: right; font-family: 'Courier New', Courier, monospace; width: 120px; }
+    .total-final { background-color: #1a1a1a; }
+    .total-final td { color: #ffffff; font-weight: bold; font-size: 16px; padding: 12px 12px; }
+
+    /* Notas y condiciones */
+    .notas-section { background-color: #fffbf0; border: 1px solid #FFD700; border-radius: 4px; padding: 16px 20px; margin-bottom: 24px; }
+    .notas-section h4 { color: #7a6000; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px 0; }
+    .notas-section ul { margin: 0; padding-left: 18px; }
+    .notas-section li { font-size: 13px; color: #555555; line-height: 1.6; margin-bottom: 4px; }
+
+    /* Vigencia */
+    .vigencia-bar { background-color: #e8f5e9; border-left: 4px solid #27AE60; padding: 12px 20px; margin-bottom: 24px; border-radius: 0 4px 4px 0; }
+    .vigencia-bar p { margin: 0; font-size: 13px; color: #1a5e20; font-weight: bold; }
+    .vigencia-bar span { font-weight: normal; color: #2e7d32; }
+
+    /* Firma vendedor */
+    .firma-section { border-top: 2px solid #eeeeee; padding-top: 24px; margin-bottom: 8px; }
+    .firma-section table { width: 100%; border-collapse: collapse; }
+    .firma-avatar { width: 56px; height: 56px; background-color: #C0392B; border-radius: 50%; text-align: center; line-height: 56px; color: #ffffff; font-size: 20px; font-weight: bold; }
+    .firma-datos td { font-size: 13px; color: #444444; line-height: 1.6; padding: 0; }
+    .firma-nombre { font-weight: bold; color: #1a1a1a; font-size: 15px; }
+    .firma-cargo { color: #C0392B; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; }
+    .firma-contacto { font-size: 12px; color: #666666; }
+    .firma-contacto a { color: #C0392B; text-decoration: none; }
+
+    /* Footer */
+    .footer { background-color: #1a1a1a; padding: 20px 32px; }
+    .footer-inner { width: 100%; }
+    .footer td { font-size: 11px; color: #888888; line-height: 1.6; }
+    .footer a { color: #aaaaaa; text-decoration: none; }
+    .footer .empresa { color: #ffffff; font-weight: bold; font-size: 12px; }
+    .footer-divider { border: none; border-top: 1px solid #333333; margin: 12px 0; }
+
+    /* Responsive */
+    @media only screen and (max-width: 480px) {
+      .email-container { width: 100% !important; }
+      .content { padding: 20px 16px !important; }
+      .header { padding: 20px 16px !important; }
+      .tagline-cell { display: none !important; }
+      .tabla-productos thead td.precio,
+      .tabla-productos tbody td.precio { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="email-wrapper">
+    <table class="email-container" width="620" cellpadding="0" cellspacing="0" role="presentation">
+
+      <!-- HEADER -->
+      <tr>
+        <td class="header">
+          <table class="header-inner" cellpadding="0" cellspacing="0" role="presentation">
+            <tr>
+              <td class="logo-cell">
+                <!-- Logo: reemplazar src con URL pública de la imagen -->
+                <img src="https://via.placeholder.com/160x48/C0392B/ffffff?text=ELECTRICA+VENTAS"
+                     alt="Electrica Ventas" width="160" height="48"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <span class="logo-text" style="display:none;">Electrica Ventas</span>
+              </td>
+              <td class="tagline-cell">
+                <p class="tagline">Materiales Eléctricos<br>para Profesionales</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- FOLIO BAR -->
+      <tr>
+        <td class="folio-bar">
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+            <tr>
+              <td>Cotización &nbsp;<span class="folio-num">{{folio}}</span></td>
+              <td style="text-align:right; font-size:12px; color:#aaaaaa;">{{fecha_emision}}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- CONTENIDO PRINCIPAL -->
+      <tr>
+        <td class="content">
+
+          <h2>Tu cotización está lista</h2>
+          <p>Estimado(a) <strong>{{nombre_cliente}}</strong>, adjunto encontrará la cotización que preparamos con base en los requerimientos indicados. Le invitamos a revisarla y con gusto atendemos cualquier ajuste.</p>
+
+          <!-- DATOS DEL CLIENTE -->
+          <div class="datos-cliente">
+            <table cellpadding="0" cellspacing="0" role="presentation">
+              <tr>
+                <td class="label">Cliente</td>
+                <td><strong>{{nombre_cliente}}</strong></td>
+              </tr>
+              <tr>
+                <td class="label">Empresa</td>
+                <td>{{empresa}}</td>
+              </tr>
+              <tr>
+                <td class="label">RFC</td>
+                <td>{{rfc}}</td>
+              </tr>
+              <tr>
+                <td class="label">Folio</td>
+                <td>{{folio}}</td>
+              </tr>
+              <tr>
+                <td class="label">Fecha</td>
+                <td>{{fecha_emision}}</td>
+              </tr>
+              <tr>
+                <td class="label">Válida hasta</td>
+                <td><strong style="color:#C0392B;">{{fecha_vencimiento}}</strong></td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- TABLA DE PRODUCTOS -->
+          <div class="productos-section">
+            <h3>Detalle de productos</h3>
+            <table class="tabla-productos" cellpadding="0" cellspacing="0" role="presentation">
+              <thead>
+                <tr>
+                  <td class="num">#</td>
+                  <td>Descripción</td>
+                  <td class="cant">Cantidad</td>
+                  <td class="precio">Precio Unit.</td>
+                  <td class="subtotal">Subtotal</td>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Fila de producto — repetir según número de ítems -->
+                <tr>
+                  <td class="num">1</td>
+                  <td>
+                    {{descripcion_producto_1}}
+                    <span class="sku">SKU: {{sku_1}}</span>
+                  </td>
+                  <td class="cant">{{cantidad_1}} {{unidad_1}}</td>
+                  <td class="precio">$\{{precio_unit_1}}</td>
+                  <td class="subtotal">$\{{subtotal_1}}</td>
+                </tr>
+                <tr>
+                  <td class="num">2</td>
+                  <td>
+                    {{descripcion_producto_2}}
+                    <span class="sku">SKU: {{sku_2}}</span>
+                  </td>
+                  <td class="cant">{{cantidad_2}} {{unidad_2}}</td>
+                  <td class="precio">$\{{precio_unit_2}}</td>
+                  <td class="subtotal">$\{{subtotal_2}}</td>
+                </tr>
+                <tr>
+                  <td class="num">3</td>
+                  <td>
+                    {{descripcion_producto_3}}
+                    <span class="sku">SKU: {{sku_3}}</span>
+                  </td>
+                  <td class="cant">{{cantidad_3}} {{unidad_3}}</td>
+                  <td class="precio">$\{{precio_unit_3}}</td>
+                  <td class="subtotal">$\{{subtotal_3}}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- TOTALES -->
+            <table class="totales-table" cellpadding="0" cellspacing="0" role="presentation">
+              <tr>
+                <td class="label-col">Subtotal:</td>
+                <td class="value-col">$\{{subtotal_general}}</td>
+              </tr>
+              <tr>
+                <td class="label-col">Descuento ({{descuento_pct}}%):</td>
+                <td class="value-col" style="color:#27AE60;">- $\{{descuento_monto}}</td>
+              </tr>
+              <tr>
+                <td class="label-col">IVA (16%):</td>
+                <td class="value-col">$\{{iva_monto}}</td>
+              </tr>
+              <tr class="total-final">
+                <td class="label-col">TOTAL:</td>
+                <td class="value-col">$\{{total_general}} MXN</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- VIGENCIA -->
+          <div class="vigencia-bar">
+            <p>Vigencia de esta cotización: <span>{{dias_vigencia}} días naturales a partir del {{fecha_emision}}</span></p>
+          </div>
+
+          <!-- NOTAS Y CONDICIONES -->
+          <div class="notas-section">
+            <h4>Notas y condiciones</h4>
+            <ul>
+              <li>Precios en pesos mexicanos (MXN), IVA incluido según se indica.</li>
+              <li>Entrega: {{dias_entrega}} días hábiles tras confirmación de pago.</li>
+              <li>Forma de pago: {{forma_pago}}.</li>
+              <li>Flete: {{condicion_flete}}.</li>
+              <li>Los precios están sujetos a disponibilidad de stock en el momento de confirmar el pedido.</li>
+              <li>{{nota_adicional}}</li>
+            </ul>
+          </div>
+
+          <!-- FIRMA DEL VENDEDOR -->
+          <div class="firma-section">
+            <table class="firma-inner" cellpadding="0" cellspacing="0" role="presentation">
+              <tr>
+                <td style="width:72px; vertical-align:top; padding-right:16px;">
+                  <div class="firma-avatar">{{iniciales_vendedor}}</div>
+                </td>
+                <td class="firma-datos" style="vertical-align:top;">
+                  <p class="firma-nombre">{{nombre_vendedor}}</p>
+                  <p class="firma-cargo">{{cargo_vendedor}} | Electrica Ventas</p>
+                  <p class="firma-contacto">
+                    Tel: <a href="tel:{{tel_vendedor}}">{{tel_vendedor}}</a> &nbsp;|&nbsp;
+                    WhatsApp: <a href="https://wa.me/{{wa_vendedor}}">{{wa_vendedor}}</a><br>
+                    <a href="mailto:{{email_vendedor}}">{{email_vendedor}}</a>
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </div>
+
+        </td>
+      </tr>
+
+      <!-- FOOTER -->
+      <tr>
+        <td class="footer">
+          <table class="footer-inner" cellpadding="0" cellspacing="0" role="presentation">
+            <tr>
+              <td>
+                <p class="empresa">Electrica Ventas S.A. de C.V.</p>
+                <p>RFC: {{rfc_empresa}} &nbsp;|&nbsp; {{direccion_empresa}}<br>
+                   Tel: {{tel_empresa}} &nbsp;|&nbsp; <a href="mailto:ventas@electricaventas.com.mx">ventas@electricaventas.com.mx</a><br>
+                   <a href="https://www.electricaventas.com.mx">www.electricaventas.com.mx</a>
+                </p>
+                <hr class="footer-divider">
+                <p>Este correo y sus adjuntos son confidenciales y están dirigidos exclusivamente al destinatario indicado.
+                   Si recibiste este mensaje por error, por favor notifícanos y elimínalo de inmediato.
+                   &nbsp;|&nbsp; <a href="{{url_privacidad}}">Aviso de Privacidad</a>
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+    </table>
+  </div>
+</body>
+</html>

@@ -1,0 +1,532 @@
+{
+  "sidebar": {
+    "app_name": "Electrica Ventas",
+    "app_tagline": "CRM de Ventas",
+    "nav": {
+      "inbox": "Bandeja de entrada",
+      "pipeline": "Pipeline de ventas",
+      "cotizaciones": "Cotizaciones",
+      "clientes": "Clientes",
+      "remarketing": "Campañas",
+      "reportes": "Reportes",
+      "configuracion": "Configuración"
+    },
+    "nav_groups": {
+      "ventas": "Ventas",
+      "marketing": "Marketing",
+      "administracion": "Administración"
+    },
+    "footer": {
+      "version": "Versión {{version}}",
+      "ayuda": "Centro de ayuda",
+      "cerrar_sesion": "Cerrar sesión"
+    }
+  },
+
+  "topbar": {
+    "inbox": {
+      "title": "Bandeja de entrada",
+      "subtitle": "Conversaciones activas de WhatsApp"
+    },
+    "inbox_detalle": {
+      "title": "Conversación",
+      "subtitle": "{{nombre_cliente}} · {{linea_wa}}"
+    },
+    "pipeline": {
+      "title": "Pipeline de ventas",
+      "subtitle": "Oportunidades en curso · {{total_oportunidades}} activas"
+    },
+    "cotizaciones": {
+      "title": "Cotizaciones",
+      "subtitle": "Gestión y seguimiento de propuestas"
+    },
+    "cotizaciones_nueva": {
+      "title": "Nueva cotización",
+      "subtitle": "Folio {{folio}} · Cliente: {{nombre_cliente}}"
+    },
+    "cotizaciones_detalle": {
+      "title": "Cotización {{folio}}",
+      "subtitle": "{{nombre_cliente}} · {{estado_label}} · ${{monto}} MXN"
+    },
+    "clientes": {
+      "title": "Clientes",
+      "subtitle": "Base de datos de clientes y empresas"
+    },
+    "clientes_detalle": {
+      "title": "{{nombre_cliente}}",
+      "subtitle": "{{empresa}} · {{linea_asignada}}"
+    },
+    "remarketing": {
+      "title": "Campañas de remarketing",
+      "subtitle": "Reactivación de prospectos inactivos"
+    },
+    "reportes": {
+      "title": "Reportes y métricas",
+      "subtitle": "Desempeño del equipo de ventas"
+    },
+    "configuracion": {
+      "title": "Configuración",
+      "subtitle": "Preferencias del sistema y del equipo"
+    }
+  },
+
+  "inbox": {
+    "search_placeholder": "Buscar por nombre, empresa o número...",
+    "filtros": {
+      "todos": "Todos",
+      "sin_asignar": "Sin asignar",
+      "mis_conversaciones": "Mis conversaciones",
+      "pendientes": "Pendientes de respuesta",
+      "fuera_horario": "Fuera de horario",
+      "por_linea": "Por línea"
+    },
+    "estados_conversacion": {
+      "abierta": "Abierta",
+      "en_curso": "En curso",
+      "esperando_cliente": "Esperando al cliente",
+      "escalada": "Escalada",
+      "cerrada": "Cerrada"
+    },
+    "estados_asignacion": {
+      "sin_asignar": "Sin asignar",
+      "asignada": "Asignada",
+      "reasignada": "Reasignada"
+    },
+    "labels": {
+      "nuevo_mensaje": "Nuevo",
+      "hace_momento": "Ahora",
+      "responder": "Responder",
+      "asignar": "Asignar vendedor",
+      "reasignar": "Reasignar",
+      "ver_historial": "Ver historial completo",
+      "adjuntar": "Adjuntar archivo",
+      "enviar_cotizacion": "Enviar cotización",
+      "marcar_resuelto": "Marcar como resuelto",
+      "sin_conversaciones": "No hay conversaciones que mostrar",
+      "cargando": "Cargando conversaciones...",
+      "ventana_activa": "Ventana activa",
+      "ventana_vencida": "Ventana vencida — solo plantillas HSM",
+      "escribir_mensaje": "Escribe un mensaje...",
+      "linea_label": "Línea: {{linea}}"
+    },
+    "placeholders": {
+      "mensaje_libre": "Escribe tu mensaje...",
+      "nota_interna": "Agrega una nota interna (solo visible para el equipo)...",
+      "buscar_plantilla": "Buscar plantilla..."
+    }
+  },
+
+  "pipeline": {
+    "titulo_kanban": "Pipeline de ventas",
+    "instruccion_drag": "Arrastra las tarjetas entre columnas para actualizar el estado",
+    "etapas": {
+      "nuevo_lead": {
+        "id": "nuevo_lead",
+        "label": "Nuevo lead",
+        "descripcion": "Primer contacto recibido, aún sin calificar",
+        "color": "#6C757D"
+      },
+      "calificado": {
+        "id": "calificado",
+        "label": "Calificado",
+        "descripcion": "Lead con necesidad real y presupuesto identificado",
+        "color": "#007BFF"
+      },
+      "cotizacion_enviada": {
+        "id": "cotizacion_enviada",
+        "label": "Cotización enviada",
+        "descripcion": "Propuesta formal enviada al cliente",
+        "color": "#FD7E14"
+      },
+      "negociacion": {
+        "id": "negociacion",
+        "label": "En negociación",
+        "descripcion": "El cliente está evaluando la propuesta",
+        "color": "#6F42C1"
+      },
+      "cierre": {
+        "id": "cierre",
+        "label": "En cierre",
+        "descripcion": "Acuerdo verbal, pendiente de pago o pedido formal",
+        "color": "#20C997"
+      },
+      "ganado": {
+        "id": "ganado",
+        "label": "Ganado",
+        "descripcion": "Venta confirmada y pagada",
+        "color": "#28A745"
+      },
+      "perdido": {
+        "id": "perdido",
+        "label": "Perdido",
+        "descripcion": "La oportunidad no prosperó",
+        "color": "#DC3545"
+      }
+    },
+    "tarjeta": {
+      "monto_label": "Monto estimado",
+      "dias_en_etapa": "{{dias}} días en esta etapa",
+      "vencimiento_cotizacion": "Cotización vence en {{dias}} días",
+      "cotizacion_vencida": "Cotización vencida",
+      "sin_cotizacion": "Sin cotización",
+      "ver_detalle": "Ver detalle",
+      "mover_a": "Mover a..."
+    },
+    "columna": {
+      "agregar_oportunidad": "Agregar oportunidad",
+      "total_columna": "{{cantidad}} oportunidad(es) · ${{monto}} MXN"
+    },
+    "sin_oportunidades": "No hay oportunidades en esta etapa"
+  },
+
+  "cotizaciones": {
+    "tabla_headers": {
+      "folio": "Folio",
+      "cliente": "Cliente",
+      "empresa": "Empresa",
+      "fecha": "Fecha",
+      "vigencia": "Vigencia",
+      "monto": "Monto",
+      "estado": "Estado",
+      "vendedor": "Vendedor",
+      "acciones": "Acciones"
+    },
+    "estados": {
+      "borrador": {
+        "id": "borrador",
+        "label": "Borrador",
+        "color": "#6C757D"
+      },
+      "enviada": {
+        "id": "enviada",
+        "label": "Enviada",
+        "color": "#007BFF"
+      },
+      "vista": {
+        "id": "vista",
+        "label": "Vista por cliente",
+        "color": "#17A2B8"
+      },
+      "en_revision": {
+        "id": "en_revision",
+        "label": "En revisión",
+        "color": "#FD7E14"
+      },
+      "aprobada": {
+        "id": "aprobada",
+        "label": "Aprobada",
+        "color": "#28A745"
+      },
+      "rechazada": {
+        "id": "rechazada",
+        "label": "Rechazada",
+        "color": "#DC3545"
+      },
+      "vencida": {
+        "id": "vencida",
+        "label": "Vencida",
+        "color": "#6C757D"
+      }
+    },
+    "acciones": {
+      "nueva": "Nueva cotización",
+      "editar": "Editar",
+      "duplicar": "Duplicar",
+      "enviar_email": "Enviar por email",
+      "enviar_whatsapp": "Enviar por WhatsApp",
+      "descargar_pdf": "Descargar PDF",
+      "marcar_aprobada": "Marcar como aprobada",
+      "marcar_rechazada": "Marcar como rechazada",
+      "regenerar": "Regenerar cotización",
+      "eliminar": "Eliminar"
+    },
+    "filtros": {
+      "todos_estados": "Todos los estados",
+      "vigentes": "Vigentes",
+      "por_vencer": "Por vencer (3 días)",
+      "vencidas": "Vencidas"
+    },
+    "formulario": {
+      "cliente_label": "Cliente",
+      "cliente_placeholder": "Buscar o crear cliente...",
+      "productos_titulo": "Productos",
+      "agregar_producto": "Agregar producto",
+      "buscar_producto_placeholder": "Buscar por nombre o SKU...",
+      "cantidad_label": "Cantidad",
+      "precio_unit_label": "Precio unitario",
+      "descuento_label": "Descuento (%)",
+      "notas_label": "Notas y condiciones",
+      "notas_placeholder": "Condiciones de entrega, forma de pago, observaciones...",
+      "vigencia_label": "Días de vigencia",
+      "guardar_borrador": "Guardar borrador",
+      "generar_cotizacion": "Generar cotización"
+    },
+    "resumen": {
+      "subtotal": "Subtotal",
+      "descuento": "Descuento",
+      "iva": "IVA (16%)",
+      "total": "Total"
+    }
+  },
+
+  "kpis": {
+    "seccion_titulo": "Métricas del equipo",
+    "periodo": {
+      "hoy": "Hoy",
+      "semana": "Esta semana",
+      "mes": "Este mes",
+      "trimestre": "Trimestre",
+      "personalizado": "Personalizado"
+    },
+    "metricas": {
+      "leads_recibidos": {
+        "label": "Leads recibidos",
+        "descripcion": "Nuevos contactos en el periodo seleccionado"
+      },
+      "cotizaciones_enviadas": {
+        "label": "Cotizaciones enviadas",
+        "descripcion": "Propuestas formales enviadas a clientes"
+      },
+      "tasa_conversion": {
+        "label": "Tasa de conversión",
+        "descripcion": "Leads que cerraron en venta confirmada"
+      },
+      "ticket_promedio": {
+        "label": "Ticket promedio",
+        "descripcion": "Valor medio por cotización ganada"
+      },
+      "ventas_cerradas": {
+        "label": "Ventas cerradas",
+        "descripcion": "Pedidos confirmados en el periodo"
+      },
+      "monto_pipeline": {
+        "label": "Monto en pipeline",
+        "descripcion": "Valor total de oportunidades activas"
+      },
+      "tiempo_respuesta": {
+        "label": "Tiempo de respuesta",
+        "descripcion": "Promedio desde primer mensaje hasta primera respuesta"
+      },
+      "tasa_apertura_email": {
+        "label": "Apertura de emails",
+        "descripcion": "Porcentaje de emails de cotización abiertos"
+      },
+      "cotizaciones_vencidas": {
+        "label": "Cotizaciones vencidas",
+        "descripcion": "Propuestas que expiaron sin respuesta"
+      },
+      "remarketing_respondidos": {
+        "label": "Respuestas a campañas",
+        "descripcion": "Prospectos que respondieron a mensajes de reactivación"
+      }
+    },
+    "variacion": {
+      "vs_periodo_anterior": "vs. periodo anterior",
+      "subio": "Subió {{pct}}%",
+      "bajo": "Bajó {{pct}}%",
+      "igual": "Sin cambio"
+    },
+    "sin_datos": "Sin datos para el periodo seleccionado"
+  },
+
+  "asignacion": {
+    "titulo": "Asignación de vendedores",
+    "modos": {
+      "round_robin": {
+        "id": "round_robin",
+        "label": "Turno equitativo",
+        "descripcion": "Cada lead nuevo se asigna al siguiente vendedor en la lista, en rotación continua. Garantiza una distribución justa independientemente del volumen."
+      },
+      "carga": {
+        "id": "carga",
+        "label": "Menor carga",
+        "descripcion": "El lead se asigna al vendedor con menos conversaciones abiertas en este momento. Ideal para equipos con ritmos de cierre desiguales."
+      },
+      "manual": {
+        "id": "manual",
+        "label": "Control manual",
+        "descripcion": "Los leads entran a la bandeja sin asignar. Un supervisor asigna manualmente según criterio, especialidad o relación previa con el cliente."
+      }
+    },
+    "acciones": {
+      "asignar": "Asignar",
+      "reasignar": "Reasignar",
+      "seleccionar_vendedor": "Seleccionar vendedor...",
+      "confirmar_asignacion": "Confirmar asignación",
+      "asignacion_automatica": "Activar asignación automática",
+      "modo_actual": "Modo actual: {{modo}}"
+    },
+    "labels": {
+      "vendedor_asignado": "Vendedor asignado",
+      "sin_asignar": "Sin asignar",
+      "linea_asignada": "Línea asignada",
+      "carga_actual": "{{cantidad}} conversaciones abiertas",
+      "disponible": "Disponible",
+      "en_descanso": "En descanso",
+      "fuera_de_horario": "Fuera de horario"
+    }
+  },
+
+  "remarketing": {
+    "titulo": "Campañas de reactivación",
+    "subtitulo": "Reactiva prospectos que no cerraron en su primera cotización",
+    "motivos": {
+      "precio": {
+        "id": "precio",
+        "label": "Precio elevado",
+        "descripcion": "El prospecto indicó que el precio fue el factor de decisión"
+      },
+      "entrega": {
+        "id": "entrega",
+        "label": "Tiempo de entrega",
+        "descripcion": "El tiempo de entrega no se ajustó a la necesidad del proyecto"
+      },
+      "competencia": {
+        "id": "competencia",
+        "label": "Se fue con la competencia",
+        "descripcion": "El prospecto eligió otra proveedora"
+      },
+      "presupuesto": {
+        "id": "presupuesto",
+        "label": "Sin presupuesto",
+        "descripcion": "El proyecto se pospuso por razones de presupuesto"
+      },
+      "sin_respuesta": {
+        "id": "sin_respuesta",
+        "label": "Sin respuesta",
+        "descripcion": "El prospecto dejó de responder sin dar motivo"
+      }
+    },
+    "plantillas_asignadas": {
+      "precio": "ev_remarketing_precio",
+      "entrega": "ev_remarketing_entrega",
+      "competencia": "ev_remarketing_competencia",
+      "presupuesto": "ev_remarketing_presupuesto",
+      "sin_respuesta": "ev_seguimiento_24h"
+    },
+    "ctas": {
+      "crear_campana": "Nueva campaña",
+      "seleccionar_prospectos": "Seleccionar prospectos",
+      "enviar_campana": "Enviar campaña",
+      "programar_campana": "Programar envío",
+      "vista_previa": "Vista previa del mensaje",
+      "cancelar_campana": "Cancelar campaña",
+      "ver_resultados": "Ver resultados"
+    },
+    "estados_campana": {
+      "borrador": "Borrador",
+      "programada": "Programada",
+      "enviando": "Enviando...",
+      "completada": "Completada",
+      "cancelada": "Cancelada"
+    },
+    "resultados": {
+      "enviados": "Mensajes enviados",
+      "entregados": "Entregados",
+      "respondieron": "Respondieron",
+      "convirtieron": "Se convirtieron en venta",
+      "tasa_respuesta": "Tasa de respuesta"
+    },
+    "sin_prospectos": "No hay prospectos disponibles para este motivo",
+    "confirmacion_envio": "¿Confirmas el envío de esta campaña a {{cantidad}} prospecto(s)?"
+  },
+
+  "toasts": {
+    "exito": {
+      "cotizacion_creada": "Cotización {{folio}} creada correctamente.",
+      "cotizacion_enviada": "Cotización enviada a {{nombre_cliente}} vía {{canal}}.",
+      "cotizacion_aprobada": "¡Cotización marcada como aprobada! Registra el pedido.",
+      "cotizacion_duplicada": "Se creó la cotización {{folio_nuevo}} como duplicado.",
+      "mensaje_enviado": "Mensaje enviado correctamente.",
+      "plantilla_enviada": "Plantilla HSM enviada a {{nombre_cliente}}.",
+      "vendedor_asignado": "Conversación asignada a {{nombre_vendedor}}.",
+      "campana_enviada": "Campaña enviada a {{cantidad}} prospecto(s).",
+      "campana_programada": "Campaña programada para {{fecha_hora}}.",
+      "cliente_guardado": "Cliente {{nombre_cliente}} guardado correctamente.",
+      "configuracion_guardada": "Configuración actualizada.",
+      "pdf_generado": "El PDF de la cotización está listo para descargarse.",
+      "etapa_actualizada": "Oportunidad movida a «{{etapa}}»."
+    },
+    "error": {
+      "cotizacion_sin_productos": "Agrega al menos un producto para generar la cotización.",
+      "cotizacion_sin_cliente": "Selecciona o crea un cliente antes de continuar.",
+      "envio_fallido": "No se pudo enviar el mensaje. Intenta de nuevo.",
+      "canal_desconectado": "El canal de WhatsApp no está disponible en este momento.",
+      "ventana_vencida": "La ventana de 24h venció. Solo puedes enviar plantillas HSM aprobadas.",
+      "plantilla_no_aprobada": "Esta plantilla aún no ha sido aprobada por Meta.",
+      "error_generico": "Ocurrió un error inesperado. Por favor, intenta de nuevo.",
+      "sin_conexion": "Sin conexión a internet. Verifica tu red.",
+      "pdf_fallido": "No se pudo generar el PDF. Intenta de nuevo.",
+      "campana_sin_prospectos": "Selecciona al menos un prospecto para la campaña.",
+      "sesion_expirada": "Tu sesión expiró. Por favor, inicia sesión de nuevo."
+    },
+    "advertencia": {
+      "cotizacion_por_vencer": "La cotización {{folio}} vence en {{dias}} día(s).",
+      "ventana_proxima_vencer": "La ventana de conversación cierra en menos de 2 horas.",
+      "cambios_sin_guardar": "Tienes cambios sin guardar. ¿Deseas continuar?"
+    },
+    "info": {
+      "cargando_conversacion": "Cargando historial de conversación...",
+      "procesando_envio": "Procesando envío...",
+      "generando_pdf": "Generando PDF de cotización..."
+    }
+  },
+
+  "modales": {
+    "asignar_vendedor": {
+      "titulo": "Asignar vendedor",
+      "descripcion": "Selecciona el ejecutivo que atenderá esta conversación.",
+      "cta_confirmar": "Asignar",
+      "cta_cancelar": "Cancelar"
+    },
+    "confirmar_cierre": {
+      "titulo": "Marcar como ganado",
+      "descripcion": "¿Confirmas que esta oportunidad cerró como venta? Esta acción actualizará el pipeline y las métricas del equipo.",
+      "cta_confirmar": "Sí, marcar como ganado",
+      "cta_cancelar": "Cancelar"
+    },
+    "confirmar_perdido": {
+      "titulo": "Marcar como perdido",
+      "descripcion": "¿Cuál fue el motivo principal por el que no se cerró esta oportunidad?",
+      "label_motivo": "Motivo de pérdida",
+      "cta_confirmar": "Marcar como perdido",
+      "cta_cancelar": "Cancelar"
+    },
+    "eliminar_cotizacion": {
+      "titulo": "Eliminar cotización",
+      "descripcion": "Esta acción es irreversible. La cotización {{folio}} se eliminará permanentemente.",
+      "cta_confirmar": "Eliminar",
+      "cta_cancelar": "Cancelar"
+    },
+    "enviar_campana": {
+      "titulo": "Confirmar envío de campaña",
+      "descripcion": "Se enviará el mensaje «{{plantilla}}» a {{cantidad}} prospecto(s). Los mensajes se despacharán de forma escalonada.",
+      "cta_confirmar": "Enviar campaña",
+      "cta_cancelar": "Revisar antes de enviar"
+    },
+    "seleccionar_plantilla": {
+      "titulo": "Seleccionar plantilla HSM",
+      "descripcion": "Elige la plantilla aprobada por Meta para iniciar o retomar la conversación.",
+      "cta_usar": "Usar esta plantilla",
+      "cta_cancelar": "Cancelar",
+      "search_placeholder": "Buscar plantilla..."
+    },
+    "reasignar_conversacion": {
+      "titulo": "Reasignar conversación",
+      "descripcion": "Selecciona el nuevo ejecutivo para esta conversación. Se notificará tanto al nuevo como al anterior asignado.",
+      "cta_confirmar": "Reasignar",
+      "cta_cancelar": "Cancelar"
+    },
+    "nuevo_cliente": {
+      "titulo": "Nuevo cliente",
+      "cta_guardar": "Guardar cliente",
+      "cta_cancelar": "Cancelar"
+    },
+    "salir_sin_guardar": {
+      "titulo": "¿Salir sin guardar?",
+      "descripcion": "Tienes cambios sin guardar. Si sales ahora, se perderán.",
+      "cta_salir": "Salir sin guardar",
+      "cta_quedarse": "Seguir editando"
+    }
+  }
+}

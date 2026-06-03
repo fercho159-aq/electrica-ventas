@@ -1,0 +1,32 @@
+{
+  "bienvenida_inbound": {
+    "id": "bienvenida_inbound",
+    "descripcion": "Mensaje cálido al recibir primer contacto dentro de ventana de 24h",
+    "tipo": "texto",
+    "contenido": "¡Hola! 👋 Bienvenido a Electrica Ventas, tu proveedora confiable de materiales eléctricos. Recibimos tu mensaje y en este momento un especialista está revisando tu solicitud.\n\nPara atenderte mejor, ¿podrías indicarnos:\n• ¿Qué material o equipo necesitas?\n• ¿Cuánto necesitas (cantidad aproximada)?\n• ¿Para cuándo lo requieres?\n\nEn breve te contactamos. ¡Gracias por preferirnos!"
+  },
+  "confirmacion_recepcion": {
+    "id": "confirmacion_recepcion",
+    "descripcion": "Acuse inmediato de solicitud recibida, previo a asignación de vendedor",
+    "tipo": "texto",
+    "contenido": "✅ Solicitud recibida. Ya la tenemos en nuestro sistema con número de folio {{folio}}.\n\nUn especialista te contactará en los próximos *15 minutos* durante horario de atención (Lun-Vie 8:00–19:00, Sáb 8:00–14:00).\n\nSi tu necesidad es urgente, responde *URGENTE* y escalamos de inmediato."
+  },
+  "cierre_sesion": {
+    "id": "cierre_sesion",
+    "descripcion": "Mensaje de cierre cuando la venta se marca como cerrada/ganada",
+    "tipo": "texto",
+    "contenido": "¡Muchas gracias por tu compra, {{nombre}}! 🎉\n\nTu pedido {{folio}} ha quedado confirmado. En breve recibirás los detalles de entrega.\n\nHa sido un placer atenderte. Recuerda que para cualquier pedido futuro o duda técnica, estamos aquí.\n\n¡Hasta pronto y que todo salga como lo planeaste en tu proyecto!"
+  },
+  "solicitud_referido": {
+    "id": "solicitud_referido",
+    "descripcion": "Solicitud de referido después de cierre exitoso, enviado 24h post-entrega",
+    "tipo": "texto",
+    "contenido": "Hola {{nombre}}, esperamos que todo haya llegado en perfectas condiciones 😊\n\nSi quedaste satisfecho con el servicio, te tendríamos un favor: ¿conoces a alguien —colega, contratista, empresa— que pueda necesitar materiales eléctricos?\n\nPor cada referido que concrete una compra, te enviamos un *regalo sorpresa* como agradecimiento.\n\nSolo comparte este número con quien creas que le podemos ayudar. ¡Muchas gracias por tu confianza!"
+  },
+  "error_canal": {
+    "id": "error_canal",
+    "descripcion": "Cuando hay un problema técnico con el canal de WhatsApp",
+    "tipo": "texto",
+    "contenido": "Disculpa la interrupción, {{nombre}}. Estamos experimentando un problema técnico momentáneo en este canal.\n\nPuedes contactarnos por estos medios alternativos:\n📧 ventas@electricaventas.com.mx\n📞 55 1234 5678\n🌐 www.electricaventas.com.mx\n\nRestauraremos el servicio a la brevedad. Nos disculpamos por los inconvenientes."
+  }
+}

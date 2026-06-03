@@ -1,0 +1,25 @@
+# =============================================================================
+# Electrica Ventas - Crontab para backups
+# Instalar con: crontab devops/cron/backup-cron  (como root)
+# O copiar a: /etc/cron.d/electrica-backup
+# =============================================================================
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=""
+
+# -----------------------------------------------------------------------------
+# Backup diario de PostgreSQL a las 2:00 AM
+# Guarda dump comprimido en /backups/electrica/YYYY-MM-DD.sql.gz
+# -----------------------------------------------------------------------------
+0 2 * * * root /usr/bin/pg_dump -U electrica_user -h localhost electrica_ventas | gzip > /backups/electrica/$(date +\%Y-\%m-\%d).sql.gz && chmod 640 /backups/electrica/$(date +\%Y-\%m-\%d).sql.gz >> /var/log/electrica/backup.log 2>&1
+
+# -----------------------------------------------------------------------------
+# Limpieza de backups con más de 30 días — todos los domingos a las 3:00 AM
+# -----------------------------------------------------------------------------
+0 3 * * 0 root /usr/bin/find /backups/electrica -name "*.sql.gz" -mtime +30 -delete >> /var/log/electrica/backup.log 2>&1
+
+# -----------------------------------------------------------------------------
+# Backup de archivos de configuración (.env, nginx, pm2) — diario a las 2:30 AM
+# -----------------------------------------------------------------------------
+30 2 * * * root tar -czf /backups/electrica/config-$(date +\%Y-\%m-\%d).tar.gz /etc/electrica /etc/nginx/sites-available/electrica-ventas.conf >> /var/log/electrica/backup.log 2>&1
