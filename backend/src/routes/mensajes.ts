@@ -5,7 +5,7 @@ import { query, queryOne, queryMany } from '../db';
 import { config } from '../config';
 import { MensajeSalienteJob } from '../workers/mensaje-saliente';
 import { whatsappService } from '../services/whatsapp';
-import { transcodeToOggOpus } from '../services/audio';
+import { transcodeAudioForWhatsApp } from '../services/audio';
 
 type Rol = 'gerente' | 'vendedor';
 
@@ -270,14 +270,15 @@ const mensajesPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         return reply.code(413).send({ error: 'Archivo demasiado grande (máx 16MB)' });
       }
 
-      // WhatsApp solo acepta audio OGG/Opus para notas de voz; Chrome graba webm → transcodificar.
+      // Audio → AAC/M4A (audio/mp4). El ogg/opus del ffmpeg del VPS lo rechaza WhatsApp;
+      // el AAC/MP4 es portable y siempre se reproduce.
       let upMime = mime;
       let upName = filename;
-      if (mediaType === 'audio' && !mime.includes('ogg')) {
+      if (mediaType === 'audio' && mime !== 'audio/mp4') {
         try {
-          buffer = Buffer.from(await transcodeToOggOpus(buffer));
-          upMime = 'audio/ogg';
-          upName = filename.replace(/\.[^.]+$/, '') + '.ogg';
+          buffer = Buffer.from(await transcodeAudioForWhatsApp(buffer));
+          upMime = 'audio/mp4';
+          upName = filename.replace(/\.[^.]+$/, '') + '.m4a';
         } catch (err) {
           return reply.code(502).send({ error: `No se pudo convertir el audio: ${(err as Error).message}` });
         }
