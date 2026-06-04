@@ -777,9 +777,10 @@ function NotasTab({ lead }) {
   );
 }
 
-// Reproductor de audio compacto estilo WhatsApp
-function AudioMsg({ src, dark }) {
+// Reproductor de audio estilo nota de voz WhatsApp
+function AudioMsg({ src }) {
   const ref = React.useRef(null);
+  const trackRef = React.useRef(null);
   const [playing, setPlaying] = React.useState(false);
   const [cur, setCur] = React.useState(0);
   const [dur, setDur] = React.useState(0);
@@ -788,32 +789,48 @@ function AudioMsg({ src, dark }) {
     const m = Math.floor(s / 60), ss = Math.floor(s % 60);
     return m + ':' + String(ss).padStart(2, '0');
   };
+  // ogg/opus de MediaRecorder reporta duration=Infinity hasta hacer seek: hack para forzarla
+  const resolveDur = (a) => {
+    if (a.duration === Infinity || isNaN(a.duration)) {
+      a.currentTime = 1e101;
+      const fix = () => { a.removeEventListener('timeupdate', fix); a.currentTime = 0; setDur(a.duration); };
+      a.addEventListener('timeupdate', fix);
+    } else { setDur(a.duration); }
+  };
   const toggle = () => {
     const a = ref.current; if (!a) return;
     if (a.paused) { a.play(); setPlaying(true); } else { a.pause(); setPlaying(false); }
   };
-  const fg = dark ? '#fff' : 'var(--ink)';
-  const track = dark ? 'rgba(255,255,255,0.25)' : 'var(--line-2)';
-  const pct = dur ? (cur / dur) * 100 : 0;
+  const seek = (e) => {
+    const a = ref.current, t = trackRef.current;
+    if (!a || !t || !isFinite(dur) || !dur) return;
+    const r = t.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    a.currentTime = ratio * dur; setCur(a.currentTime);
+  };
+  const pct = (dur && isFinite(dur)) ? (cur / dur) * 100 : 0;
   return (
-    <div className="row" style={{ gap: 10, minWidth: 230, alignItems: 'center', padding: '2px 2px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 218, maxWidth: '100%', padding: '2px 0' }}>
       <button onClick={toggle} aria-label={playing ? 'Pausar' : 'Reproducir'}
-        style={{ flexShrink: 0, width: 34, height: 34, borderRadius: '50%', border: 0, cursor: 'pointer',
+        style={{ flexShrink: 0, width: 36, height: 36, borderRadius: '50%', border: 0, cursor: 'pointer',
           background: 'var(--accent)', color: 'var(--accent-ink, #fff)', display: 'grid', placeItems: 'center', fontSize: 13 }}>
         {playing ? '❚❚' : '▶'}
       </button>
-      <div style={{ flex: 1 }}>
-        <input type="range" min={0} max={dur || 0} step="0.01" value={cur}
-          onChange={(e) => { if (ref.current) ref.current.currentTime = +e.target.value; setCur(+e.target.value); }}
-          style={{ width: '100%', accentColor: 'var(--accent)', background: track, height: 4, cursor: 'pointer' }}/>
-        <div className="mono" style={{ fontSize: 10.5, color: fg, opacity: 0.8, marginTop: 2 }}>
-          {fmt(cur)} / {fmt(dur)}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div ref={trackRef} onClick={seek}
+          style={{ position: 'relative', height: 16, display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+          <div style={{ height: 3, width: '100%', borderRadius: 3, background: 'currentColor', opacity: 0.22 }}/>
+          <div style={{ position: 'absolute', left: 0, height: 3, borderRadius: 3, background: 'var(--accent)', width: pct + '%' }}/>
+          <div style={{ position: 'absolute', left: pct + '%', width: 11, height: 11, borderRadius: '50%',
+            background: 'var(--accent)', transform: 'translateX(-50%)', boxShadow: '0 1px 2px rgba(0,0,0,.25)' }}/>
+        </div>
+        <div className="mono" style={{ fontSize: 10.5, color: 'currentColor', opacity: 0.6, marginTop: 3 }}>
+          {(playing || cur > 0) ? fmt(cur) : fmt(dur)}
         </div>
       </div>
       <audio ref={ref} src={src} preload="metadata"
-        onLoadedMetadata={(e) => setDur(e.target.duration)}
-        onDurationChange={(e) => setDur(e.target.duration)}
-        onTimeUpdate={(e) => setCur(e.target.currentTime)}
+        onLoadedMetadata={(e) => resolveDur(e.target)}
+        onTimeUpdate={(e) => setCur(e.target.currentTime || 0)}
         onEnded={() => { setPlaying(false); setCur(0); }}
         style={{ display: 'none' }}/>
     </div>
@@ -830,7 +847,7 @@ function Msg({ m, vendedor }) {
   }
   const isV = m.from === 'vendedor';
   return (
-    <div className="msg-row" style={{display:'flex',gap:10,marginBottom:14,flexDirection:isV?'row-reverse':'row'}}>
+    <div className={'msg-row '+(isV?'msg-out':'msg-in')} style={{display:'flex',gap:10,marginBottom:14,flexDirection:isV?'row-reverse':'row'}}>
       <span className="msg-avatar">
       {isV
         ? <Avatar vendedor={vendedor} size={28}/>
@@ -851,7 +868,7 @@ function Msg({ m, vendedor }) {
           color:isV?'#fff':'var(--ink)',
           border:isV?'0':'1px solid var(--line)',
           padding:(m.tieneMedia&&m.tipoMedia==='image')?6:'10px 12px',borderRadius:10,fontSize:13,lineHeight:1.45,
-          wordBreak:'break-word',
+          overflowWrap:'break-word', wordBreak:'normal',
           opacity:isV&&m.estado==='error'?0.85:1,
         }}>
           {m.tieneMedia && m.tipoMedia === 'sticker' ? (
@@ -870,8 +887,9 @@ function Msg({ m, vendedor }) {
             <video controls src={ApiClient.mediaSrc(m.id)} style={{maxWidth:260,maxHeight:300,borderRadius:6,display:'block'}}/>
           ) : m.tieneMedia && m.tipoMedia === 'document' ? (
             <a href={ApiClient.mediaSrc(m.id)} target="_blank" rel="noreferrer" download
-               style={{color:isV?'#fff':'var(--accent)',textDecoration:'underline'}}>
-              📄 {m.texto||'documento'}
+               className="row" style={{color:'currentColor',textDecoration:'none',gap:8,alignItems:'center',fontWeight:500}}>
+              <span style={{flexShrink:0,opacity:0.85}}><IcoDoc size={20}/></span>
+              <span style={{textDecoration:'underline',wordBreak:'break-word'}}>{m.texto||'documento'}</span>
             </a>
           ) : m.texto}
         </div>

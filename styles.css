@@ -410,7 +410,7 @@ body{
 /* ═══ RESPONSIVE / MÓVIL ═══════════════════════════════════════════════ */
 @media (max-width: 820px) {
   /* App: una columna; sidebar pasa a barra inferior fija */
-  .app { grid-template-columns: 1fr; height: auto; min-height: 100dvh; }
+  .app { grid-template-columns: 1fr; height: 100dvh; overflow: hidden; }
   .sidebar {
     position: fixed; left: 0; right: 0; bottom: 0; top: auto;
     flex-direction: row; height: auto; z-index: 100;
@@ -427,7 +427,9 @@ body{
   .nav-badge { position: absolute; top: 2px; right: 10px; }
 
   /* Contenido: ocupa todo, deja espacio para la barra inferior */
-  .content { height: auto; min-height: 100dvh; padding-bottom: 72px; }
+  .content { height: 100dvh; overflow: hidden; padding-bottom: calc(58px + env(safe-area-inset-bottom)); }
+  /* route-view hace el scroll de cada pantalla; el inbox maneja el suyo interno */
+  .route-view { overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; }
   .page { padding: 14px 14px 32px; }
 
   /* Grids colapsan a una columna */
@@ -550,3 +552,26 @@ body{
 .route-view { flex: 1; display: flex; flex-direction: column; min-height: 0; animation: route-in .26s cubic-bezier(.22,.61,.36,1); }
 @keyframes route-in { from { opacity: 0; transform: translateX(22px); } to { opacity: 1; transform: translateX(0); } }
 @media (prefers-reduced-motion: reduce) { .route-view { animation: none; } }
+
+/* En móvil, el inbox usa su propio header/búsqueda → ocultar topbar global redundante */
+@media (max-width: 820px) {
+  .route-inbox > .topbar { display: none; }
+}
+
+/* Burbujas en móvil: layout inline-block + text-align (no flex → no rompe palabras) */
+@media (max-width: 820px) {
+  .msg-row { display: block !important; margin-bottom: 12px; }
+  .msg-avatar { display: none !important; }
+  .msg-in  { text-align: left; }
+  .msg-out { text-align: right; }
+  .msg-col {
+    display: inline-block !important;
+    max-width: 82% !important;
+    text-align: left;
+    vertical-align: top;
+  }
+  .chat-bubble { display: inline-block; max-width: 100% !important; }
+  /* meta (hora + check) alineada al lado correcto */
+  .msg-in .msg-meta  { justify-content: flex-start; }
+  .msg-out .msg-meta { justify-content: flex-end; }
+}
