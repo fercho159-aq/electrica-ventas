@@ -113,7 +113,7 @@ const leadsPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       const leads = await queryMany(
         `SELECT
            l.id, l.contacto, l.empresa, l.telefono, l.email,
-           l.etapa, l.prioridad, l.zona, l.monto_estimado, l.notas,
+           l.etapa, l.prioridad, l.zona, l.monto_estimado, l.notas, l.motivo_no_cierre,
            l.created_at, l.ultima_interaccion,
            c.id as canal_id, c.nombre as canal_nombre, c.tipo as canal_tipo,
            u.id as vendedor_id, u.nombre as vendedor_nombre, u.zona as vendedor_zona,

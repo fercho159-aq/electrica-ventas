@@ -79,14 +79,12 @@ function useLeadsAPI(rol, rolVendedor, isLiveMode) {
 function useMensajesAPI(lead, isLiveMode) {
   const [msgs, setMsgs] = React.useState([]);
   const [canales, setCanales] = React.useState([]);
+  const leadId = lead?.id;
 
-  React.useEffect(() => {
-    if (!isLiveMode || !lead) {
-      setMsgs(CONVERSACION_EJEMPLO);
-      return;
-    }
-    setMsgs([]);
-    ApiClient.getMensajes(lead.id)
+  // Carga (o recarga) los mensajes del lead desde el API.
+  const loadMsgs = React.useCallback(() => {
+    if (!isLiveMode || !leadId) { setMsgs(CONVERSACION_EJEMPLO); return; }
+    ApiClient.getMensajes(leadId)
       .then(({ data }) => {
         // API devuelve DESC (más reciente primero); invertir a cronológico ASC
         const ordered = [...data].reverse();
@@ -103,14 +101,27 @@ function useMensajesAPI(lead, isLiveMode) {
         setMsgs(normalized);
       })
       .catch(() => setMsgs(CONVERSACION_EJEMPLO));
+  }, [leadId, isLiveMode]);
 
+  React.useEffect(() => {
+    if (!isLiveMode || !leadId) { setMsgs(CONVERSACION_EJEMPLO); return; }
+    setMsgs([]);
+    loadMsgs();
     // Fetch canales for send selector
     ApiClient.getCanales()
       .then(({ data }) => setCanales(data))
       .catch(() => {});
-  }, [lead?.id, isLiveMode]);
+  }, [leadId, isLiveMode, loadMsgs]);
 
-  // Append incoming WS message
+  // Tiempo real: recargar al recibir cualquier mensaje (entrante o saliente) de ESTE lead.
+  React.useEffect(() => {
+    if (!isLiveMode || !leadId) return;
+    const handler = (e) => { if (e.leadId === leadId) loadMsgs(); };
+    const off = WsClient.on('new_message', handler);
+    return () => off();
+  }, [leadId, isLiveMode, loadMsgs]);
+
+  // Append incoming WS message (fallback manual, ya no se usa para entrantes)
   const appendFromWS = React.useCallback((rawMsg) => {
     const m = {
       id: rawMsg.id,
@@ -120,7 +131,14 @@ function useMensajesAPI(lead, isLiveMode) {
       texto: rawMsg.texto || '[media]',
       _raw: rawMsg,
     };
-    setMsgs(prev => [...prev.filter(x => x.id !== m.id), m]);
+    setMsgs(prev => {
+      let next = prev.filter(x => x.id !== m.id);
+      // Reconciliar burbuja optimista: si es saliente, quitar el tmp- con mismo texto
+      if (m.from !== 'cliente') {
+        next = next.filter(x => !(String(x.id).startsWith('tmp-') && x.texto === m.texto));
+      }
+      return [...next, m];
+    });
   }, []);
 
   const appendOptimistic = React.useCallback((texto, canal) => {
@@ -287,23 +305,7 @@ function LeadDetail({ lead, rol, isLiveMode, onLeadUpdated }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [msgs.length]);
 
-  // WS: receive new message for THIS lead
-  React.useEffect(() => {
-    if (!isLiveMode) return;
-    const off = WsClient.on('new_message', (e) => {
-      if (e.leadId === lead.id && e.data) {
-        const raw = e.data;
-        appendFromWS({
-          id: raw.id,
-          origen: raw.origen || 'cliente',
-          canal: raw.canal || { tipo: 'whatsapp' },
-          ts: raw.ts || new Date().toISOString(),
-          texto: raw.texto || '[media]',
-        });
-      }
-    });
-    return () => off();
-  }, [lead.id, isLiveMode, appendFromWS]);
+  // Tiempo real: la recarga de mensajes la maneja useMensajesAPI (suscrito a 'new_message').
 
   // Determine send canal: use lead's canal, fallback to WA canal from list
   const sendCanalId = React.useMemo(() => {

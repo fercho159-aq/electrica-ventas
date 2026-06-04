@@ -100,7 +100,21 @@ const NAV = [
 ];
 
 function Sidebar({ route, setRoute, rol, rolActivoVendedor, setRol, onLogout }) {
-  const nuevosCount = LEADS.filter(l => l.etapa === 'nuevo' && !l.asignadoA).length;
+  // Conteo real de leads nuevos (backend lo filtra por rol). Gerente: sin asignar.
+  const [nuevosCount, setNuevosCount] = React.useState(0);
+  React.useEffect(() => {
+    const cargar = () => {
+      ApiClient.getLeads({ etapa: 'nuevo', limit: '100' })
+        .then(r => {
+          const ls = r.data || [];
+          setNuevosCount(rol === 'gerente' ? ls.filter(l => !l.vendedor_id).length : ls.length);
+        })
+        .catch(() => {});
+    };
+    cargar();
+    const offs = ['new_message','new_lead','lead_updated'].map(ev => WsClient.on(ev, cargar));
+    return () => offs.forEach(off => off());
+  }, [rol]);
   const items = NAV.filter(n => n.roles.includes(rol));
   return (
     <aside className="sidebar">

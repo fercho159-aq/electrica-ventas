@@ -34,24 +34,61 @@ function KpiCard({ label, value, delta, deltaDir='up', spark, sparkColor }) {
   );
 }
 
+const { useState: _useState, useEffect: _useEffect } = React;
+
+// Construye un objeto vendedor compatible con <Avatar/> a partir de fila de /api/kpis
+function vendedorFromKpi(row) {
+  const nombre = row.vendedor_nombre || '—';
+  const iniciales = nombre.split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('').toUpperCase();
+  return { id: row.vendedor_id, nombre, iniciales, estado: 'offline', zona: row.zona };
+}
+
 function Dashboard({ setRoute }) {
-  const nuevos = LEADS.filter(l => l.etapa === 'nuevo' && !l.asignadoA);
-  const abiertos = LEADS.filter(l => !['cerrado','no_cierre'].includes(l.etapa));
-  const cerradosHoy = LEADS.filter(l => l.etapa === 'cerrado').slice(0, 4);
-  const ingresosTotales = Object.values(KPIS).reduce((s,k)=>s+k.ingresos,0);
-  const cotizTotales = Object.values(KPIS).reduce((s,k)=>s+k.cotiz,0);
-  const cerradasTotales = Object.values(KPIS).reduce((s,k)=>s+k.cerradas,0);
-  const tasaGlobal = cerradasTotales / cotizTotales;
-  const respProm = Object.values(KPIS).reduce((s,k)=>s+k.respMin,0) / Object.values(KPIS).length;
-  const topVendedores = [...VENDEDORES].sort((a,b) => KPIS[b.id].ingresos - KPIS[a.id].ingresos).slice(0,5);
+  const [resumen, setResumen] = _useState(null);
+  const [embudo, setEmbudo]   = _useState(null);
+  const [ranking, setRanking] = _useState(null);
+  const [nuevos, setNuevos]   = _useState(null);
+  const [err, setErr]         = _useState(null);
+
+  const cargar = React.useCallback(() => {
+    Promise.all([
+      ApiClient.getDashboard(),
+      ApiClient.getEmbudo(),
+      ApiClient.getKpis('mes'),
+      ApiClient.getLeads({ etapa: 'nuevo', limit: '20' }),
+    ]).then(([r, e, k, l]) => {
+      setResumen(r.data);
+      setEmbudo(e.data);
+      setRanking(k.data || []);
+      setNuevos((l.data || []).filter(x => !x.asignado_a));
+      setErr(null);
+    }).catch(ex => setErr(ex.message));
+  }, []);
+
+  _useEffect(() => {
+    cargar();
+    const off = WsClient.on('new_message', cargar);
+    const offL = WsClient.on('new_lead', cargar);
+    const offU = WsClient.on('lead_updated', cargar);
+    return () => { off(); offL(); offU(); };
+  }, [cargar]);
+
+  if (err) return <div className="page"><div className="card" style={{padding:24,color:'var(--accent)'}}>Error cargando dashboard: {err}</div></div>;
+  if (!resumen || !embudo || !ranking) return <div className="page"><div className="muted" style={{padding:24,fontSize:13}}>Cargando datos…</div></div>;
+
+  const top = ranking.slice(0,5).map(r => ({ v: vendedorFromKpi(r), k: r }));
+  const maxIng = Math.max(1, ...top.map(t => Number(t.k.ingresos_periodo) || 0));
+  const maxEtapa = Math.max(1, ...embudo.embudo.map(e => e.count));
+  const labelEtapa = (id) => (ETAPAS.find(e => e.id === id) || {}).label || id;
+  const colorEtapa = (id) => (ETAPAS.find(e => e.id === id) || {}).color || 'var(--ink-3)';
 
   return (
     <div className="page">
       <div className="grid-4" style={{marginBottom:16}}>
-        <KpiCard label="Leads nuevos sin asignar" value={nuevos.length} delta="12% vs ayer" spark={SERIES.leadsEntrantes} sparkColor="var(--accent)"/>
-        <KpiCard label="Tasa de conversión" value={pct(tasaGlobal)} delta="3.2 pts" spark={SERIES.leadsCerrados} sparkColor="var(--ok)"/>
-        <KpiCard label="Resp. promedio" value={respProm.toFixed(1)+' min'} delta="0.8 min" deltaDir="down" spark={SERIES.respuestaMin} sparkColor="var(--info)"/>
-        <KpiCard label="Ingresos MTD" value={money(ingresosTotales)} delta="18%" spark={[12,15,14,17,19,22,24,26,28,30,32,36,40,44]} sparkColor="var(--ink)"/>
+        <KpiCard label="Leads nuevos sin asignar" value={resumen.leads_nuevos_sin_asignar}/>
+        <KpiCard label="Tasa de conversión" value={(resumen.tasa_conversion_pct ?? 0)+'%'}/>
+        <KpiCard label="Resp. promedio" value={resumen.respuesta_promedio_min != null ? resumen.respuesta_promedio_min+' min' : '—'}/>
+        <KpiCard label="Ingresos MTD" value={money(resumen.ingresos_mtd || 0)}/>
       </div>
 
       <div className="grid-2" style={{marginBottom:16}}>
@@ -62,11 +99,22 @@ function Dashboard({ setRoute }) {
             <span className="pill pill-ok"><span className="prio-dot" style={{background:'currentColor'}}/> En línea</span>
           </div>
           <div className="card-body" style={{display:'flex',flexDirection:'column',gap:12}}>
-            <CanalRow icon={<IcoWhatsapp size={16}/>} color="#15803d" label="WhatsApp · +52 81 0000 0101" mensajes={142} nuevos={8} tiempoMs="2.1 min"/>
-            <CanalRow icon={<IcoWhatsapp size={16}/>} color="#15803d" label="WhatsApp · +52 81 0000 0202" mensajes={98}  nuevos={3} tiempoMs="3.4 min"/>
-            <CanalRow icon={<IcoMail size={16}/>}     color="#0369a1" label="ventas@electrica.mx"        mensajes={56}  nuevos={5} tiempoMs="12 min"/>
+            {(resumen.actividad_canales || []).filter(c => Number(c.mensajes_24h) > 0).length === 0 && (
+              <div className="muted" style={{fontSize:12}}>Sin actividad en las últimas 24h.</div>
+            )}
+            {(resumen.actividad_canales || []).map(c => (
+              <CanalRow
+                key={c.canal_id}
+                icon={c.canal_tipo === 'email' ? <IcoMail size={16}/> : <IcoWhatsapp size={16}/>}
+                color={c.canal_tipo === 'email' ? '#0369a1' : '#15803d'}
+                label={c.canal_nombre}
+                mensajes={Number(c.mensajes_24h) || 0}
+                nuevos={Number(c.leads_nuevos_24h) || 0}
+                tiempoMs="—"
+              />
+            ))}
             <div className="muted mono" style={{fontSize:11,borderTop:'1px dashed var(--line)',paddingTop:10,marginTop:4}}>
-              ∆ Integración: WhatsApp Business Platform (360dialog) · IMAP/SMTP
+              ∆ Integración: WhatsApp Cloud API (Meta) · IMAP/SMTP
             </div>
           </div>
         </div>
@@ -78,23 +126,23 @@ function Dashboard({ setRoute }) {
             <button className="btn btn-sm btn-ghost" onClick={()=>setRoute('kpis')}>Ver todos <IcoChevronR size={12}/></button>
           </div>
           <div className="card-body" style={{padding:0}}>
-            {topVendedores.map((v, i) => {
-              const k = KPIS[v.id];
-              const maxIng = KPIS[topVendedores[0].id].ingresos;
+            {top.length === 0 && <div className="muted" style={{fontSize:12,padding:16}}>Sin vendedores activos.</div>}
+            {top.map(({v, k}, i) => {
+              const ing = Number(k.ingresos_periodo) || 0;
               return (
-                <div key={v.id} className="row" style={{padding:'10px 16px',borderBottom:i<4?'1px solid var(--line-2)':'0',gap:12}}>
+                <div key={v.id} className="row" style={{padding:'10px 16px',borderBottom:i<top.length-1?'1px solid var(--line-2)':'0',gap:12}}>
                   <div className="mono" style={{fontSize:11,color:'var(--ink-4)',width:16}}>{String(i+1).padStart(2,'0')}</div>
                   <Avatar vendedor={v} size={30}/>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:13,fontWeight:500}}>{v.nombre}</div>
-                    <div className="muted" style={{fontSize:11}}>{k.cerradas} ventas · {pct(k.tasa)} conv.</div>
+                    <div className="muted" style={{fontSize:11}}>{k.leads_cerrados} ventas · {(k.tasa_conversion_pct ?? 0)}% conv.</div>
                   </div>
                   <div style={{width:90}}>
                     <div style={{height:4,background:'var(--line-2)',borderRadius:2,overflow:'hidden'}}>
-                      <div style={{width:(k.ingresos/maxIng*100)+'%',height:'100%',background:'var(--ink)'}}/>
+                      <div style={{width:(ing/maxIng*100)+'%',height:'100%',background:'var(--ink)'}}/>
                     </div>
                   </div>
-                  <div className="tabular mono" style={{fontSize:12,width:80,textAlign:'right'}}>{money(k.ingresos)}</div>
+                  <div className="tabular mono" style={{fontSize:12,width:80,textAlign:'right'}}>{money(ing)}</div>
                 </div>
               );
             })}
@@ -106,18 +154,19 @@ function Dashboard({ setRoute }) {
         {/* Leads nuevos */}
         <div className="card">
           <div className="card-hd">
-            <h3>Leads nuevos sin asignar <span className="pill pill-accent" style={{marginLeft:6}}>{nuevos.length}</span></h3>
+            <h3>Leads nuevos sin asignar <span className="pill pill-accent" style={{marginLeft:6}}>{resumen.leads_nuevos_sin_asignar}</span></h3>
             <button className="btn btn-sm btn-accent" onClick={()=>setRoute('asignacion')}>Asignar todos <IcoChevronR size={12}/></button>
           </div>
           <div className="card-body" style={{padding:0,maxHeight:320,overflowY:'auto'}}>
-            {nuevos.slice(0,7).map((l,i)=>(
+            {(nuevos || []).length === 0 && <div className="muted" style={{fontSize:12,padding:16}}>Nada pendiente de asignar.</div>}
+            {(nuevos || []).slice(0,7).map((l,i)=>(
               <div key={l.id} className="row" style={{padding:'10px 16px',borderBottom:i<6?'1px solid var(--line-2)':'0',gap:10}}>
-                <ChipCanal canal={l.canal}/>
+                <ChipCanal canal={l.canal_tipo || 'whatsapp'}/>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:13,fontWeight:500}}>{l.contacto}</div>
-                  <div className="muted" style={{fontSize:11,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.empresa} · {l.zona}</div>
+                  <div className="muted" style={{fontSize:11,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.empresa || '—'} · {l.zona || '—'}</div>
                 </div>
-                <div className="muted mono" style={{fontSize:11}}>{relTime(l.ultimaInteraccion)}</div>
+                <div className="muted mono" style={{fontSize:11}}>{relTime(new Date(l.ultima_interaccion || l.created_at || Date.now()).getTime())}</div>
               </div>
             ))}
           </div>
@@ -130,20 +179,17 @@ function Dashboard({ setRoute }) {
             <button className="btn btn-sm btn-ghost" onClick={()=>setRoute('pipeline')}>Abrir pipeline <IcoChevronR size={12}/></button>
           </div>
           <div className="card-body" style={{display:'flex',flexDirection:'column',gap:8}}>
-            {ETAPAS.map(e => {
-              const n = LEADS.filter(l => l.etapa === e.id).length;
-              const max = Math.max(...ETAPAS.map(et => LEADS.filter(l => l.etapa === et.id).length));
-              return (
-                <div key={e.id} className="row" style={{gap:10}}>
-                  <div style={{width:100,fontSize:12,color:'var(--ink-3)'}}>{e.label}</div>
-                  <div style={{flex:1,height:22,background:'var(--line-2)',borderRadius:4,overflow:'hidden',position:'relative'}}>
-                    <div style={{width:(n/max*100)+'%',height:'100%',background:e.color,opacity:0.85}}/>
-                    <div className="mono" style={{position:'absolute',right:8,top:3,fontSize:11,color:'#fff',fontWeight:500}}>{n}</div>
-                  </div>
-                  <div className="tabular mono muted" style={{fontSize:11,width:40,textAlign:'right'}}>{pct(n/LEADS.length)}</div>
+            {embudo.embudo.length === 0 && <div className="muted" style={{fontSize:12}}>Sin leads.</div>}
+            {embudo.embudo.map(e => (
+              <div key={e.etapa} className="row" style={{gap:10}}>
+                <div style={{width:100,fontSize:12,color:'var(--ink-3)'}}>{labelEtapa(e.etapa)}</div>
+                <div style={{flex:1,height:22,background:'var(--line-2)',borderRadius:4,overflow:'hidden',position:'relative'}}>
+                  <div style={{width:(e.count/maxEtapa*100)+'%',height:'100%',background:colorEtapa(e.etapa),opacity:0.85}}/>
+                  <div className="mono" style={{position:'absolute',right:8,top:3,fontSize:11,color:'#fff',fontWeight:500}}>{e.count}</div>
                 </div>
-              );
-            })}
+                <div className="tabular mono muted" style={{fontSize:11,width:40,textAlign:'right'}}>{e.porcentaje}%</div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

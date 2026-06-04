@@ -79,6 +79,8 @@ window.ApiClient = {
 
   // Dashboard
   getDashboard() { return this._fetch('/api/dashboard/resumen'); },
+  getEmbudo()    { return this._fetch('/api/dashboard/embudo'); },
+  getActividadCanales() { return this._fetch('/api/canales/actividad'); },
 
   // Cotizaciones
   getCotizaciones(f = {}) {
@@ -144,10 +146,24 @@ window.WsClient = {
     return () => this._handlers[type]?.delete(fn);
   },
 
+  // El backend publica tipos en español; el frontend escucha en inglés.
+  // Mapeo backend -> tipos que escuchan las pantallas.
+  _aliasFor(type) {
+    return {
+      mensaje_entrante: 'new_message',
+      mensaje_saliente: 'new_message',
+      etapa_changed:    'lead_updated',
+      lead_assigned:    'lead_updated',
+    }[type];
+  },
+
   _emit(event) {
-    this._handlers[event.type]?.forEach(fn => {
-      try { fn(event); } catch {}
-    });
+    const types = [event.type, this._aliasFor(event.type)].filter(Boolean);
+    for (const t of types) {
+      this._handlers[t]?.forEach(fn => {
+        try { fn(event); } catch {}
+      });
+    }
   },
 
   get isConnected() {

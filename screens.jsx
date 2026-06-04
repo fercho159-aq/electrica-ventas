@@ -1,28 +1,63 @@
 // Panel de asignación + Pipeline kanban + Cotizaciones + Remarketing + KPIs + Unidades
+//
+// Todas estas pantallas leen del backend vía ApiClient y se auto-refrescan con
+// eventos WebSocket (new_message / new_lead / lead_updated).
+
+// Hook genérico: ejecuta `fetcher` (Promise) al montar y en cada evento WS.
+function useBackendData(fetcher, evts) {
+  const [data, setData] = React.useState(null);
+  const [err, setErr] = React.useState(null);
+  const fetcherRef = React.useRef(fetcher);
+  fetcherRef.current = fetcher;
+  const load = React.useCallback(() => {
+    fetcherRef.current()
+      .then(d => { setData(d); setErr(null); })
+      .catch(e => setErr(e.message));
+  }, []);
+  React.useEffect(() => {
+    load();
+    const events = evts || ['new_message', 'new_lead', 'lead_updated'];
+    const offs = events.map(ev => WsClient.on(ev, load));
+    return () => offs.forEach(off => off());
+  }, [load]);
+  return { data, err, reload: load };
+}
+
+// Construye objeto vendedor compatible con <Avatar/> a partir de fila de /api/kpis
+function vendedorFromKpiRow(r) {
+  const nombre = r.vendedor_nombre || '—';
+  const iniciales = nombre.split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('').toUpperCase();
+  return { id: r.vendedor_id, nombre, iniciales, estado: 'offline', zona: r.zona };
+}
+const N = (x) => Number(x) || 0;
 
 // ─── Asignación ───────────────────────────────────────────────────────────
 function Asignacion() {
   const [modo, setModo] = React.useState('rr');
-  const [asignados, setAsignados] = React.useState({});
+  const [busy, setBusy] = React.useState(false);
   const toast = useToast();
-  const nuevos = LEADS.filter(l => l.etapa === 'nuevo' && !l.asignadoA);
 
-  const rrOrder = VENDEDORES.filter(v => v.activo);
+  const nuevosQ = useBackendData(() => ApiClient.getLeads({ etapa: 'nuevo', limit: '100' }).then(r => (r.data || []).filter(l => !l.vendedor_id)));
+  const vendQ = useBackendData(() => ApiClient.getKpis('mes').then(r => r.data || []));
+  const nuevos = nuevosQ.data || [];
+  const vendedores = (vendQ.data || []).map(r => ({ ...vendedorFromKpiRow(r), cargaActual: N(r.leads_activos) }));
+
   const asignar = (leadId, vendedorId) => {
-    setAsignados({...asignados, [leadId]: vendedorId});
-    const v = VENDEDORES.find(x=>x.id===vendedorId);
-    toast('Lead asignado a ' + v.nombre, 'ok');
+    const v = vendedores.find(x => x.id === vendedorId);
+    ApiClient.asignarLead(leadId, vendedorId)
+      .then(() => { toast('Lead asignado a ' + (v ? v.nombre : 'vendedor'), 'ok'); nuevosQ.reload(); vendQ.reload(); })
+      .catch(e => toast('Error: ' + e.message, 'bad'));
   };
 
   const autoAsignar = () => {
-    const sorted = modo === 'rr'
-      ? rrOrder
-      : [...rrOrder].sort((a,b) => a.cargaActual - b.cargaActual);
-    const nuevos2 = {};
-    nuevos.forEach((l,i) => { nuevos2[l.id] = sorted[i % sorted.length].id; });
-    setAsignados({...asignados, ...nuevos2});
-    toast(nuevos.length + ' leads distribuidos automáticamente', 'ok');
+    setBusy(true);
+    ApiClient.autoAsignar()
+      .then(res => { toast((res.data?.resumen) || 'Asignación automática ejecutada', 'ok'); nuevosQ.reload(); vendQ.reload(); })
+      .catch(e => toast('Error: ' + e.message, 'bad'))
+      .finally(() => setBusy(false));
   };
+
+  if (nuevosQ.err) return <div className="page"><div className="card" style={{padding:24,color:'var(--accent)'}}>Error: {nuevosQ.err}</div></div>;
 
   return (
     <div className="page">
@@ -36,10 +71,10 @@ function Asignacion() {
           </div>
         </div>
         <div className="card-body">
-          {modo === 'rr' && <div className="muted" style={{fontSize:13}}>Los leads nuevos se reparten <b style={{color:'var(--ink)'}}>equitativamente</b> entre los <b style={{color:'var(--ink)'}}>{rrOrder.length}</b> vendedores activos, en el orden listado abajo. Se omite a quien esté <span className="pill">offline</span>.</div>}
-          {modo === 'carga' && <div className="muted" style={{fontSize:13}}>Los leads se asignan al vendedor con <b style={{color:'var(--ink)'}}>menor carga actual</b> en leads abiertos. Evita saturar a un vendedor con muchos leads activos.</div>}
-          {modo === 'manual' && <div className="muted" style={{fontSize:13}}>Cada lead nuevo se asigna <b style={{color:'var(--ink)'}}>manualmente</b> desde esta pantalla. El gerente mantiene control total.</div>}
-          {modo !== 'manual' && <button className="btn btn-accent" style={{marginTop:12}} onClick={autoAsignar}><IcoBolt size={13}/>Asignar {nuevos.length} leads nuevos</button>}
+          {modo === 'rr' && <div className="muted" style={{fontSize:13}}>Los leads nuevos se reparten <b style={{color:'var(--ink)'}}>equitativamente</b> entre los <b style={{color:'var(--ink)'}}>{vendedores.length}</b> vendedores activos. El backend aplica la regla configurada por canal.</div>}
+          {modo === 'carga' && <div className="muted" style={{fontSize:13}}>Los leads se asignan al vendedor con <b style={{color:'var(--ink)'}}>menor carga actual</b> en leads abiertos.</div>}
+          {modo === 'manual' && <div className="muted" style={{fontSize:13}}>Cada lead nuevo se asigna <b style={{color:'var(--ink)'}}>manualmente</b> desde esta pantalla.</div>}
+          {modo !== 'manual' && <button className="btn btn-accent" style={{marginTop:12}} disabled={busy||nuevos.length===0} onClick={autoAsignar}><IcoBolt size={13}/>{busy?'Asignando…':'Asignar '+nuevos.length+' leads nuevos'}</button>}
         </div>
       </div>
 
@@ -51,33 +86,23 @@ function Asignacion() {
             <table className="tbl">
               <thead><tr><th>Lead</th><th>Canal</th><th>Espera</th><th>Asignar</th></tr></thead>
               <tbody>
-                {nuevos.map(l=>{
-                  const asig = asignados[l.id];
-                  return (
-                    <tr key={l.id}>
-                      <td>
-                        <div style={{fontSize:12.5,fontWeight:500}}>{l.contacto}</div>
-                        <div className="muted" style={{fontSize:11}}>{l.empresa}</div>
-                      </td>
-                      <td><ChipCanal canal={l.canal}/></td>
-                      <td className="mono muted" style={{fontSize:11.5}}>{relTime(l.ultimaInteraccion)}</td>
-                      <td>
-                        {asig ? (
-                          <div className="row" style={{gap:6}}>
-                            <Avatar vendedor={asig} size={22}/>
-                            <span style={{fontSize:11.5}}>{VENDEDORES.find(v=>v.id===asig)?.iniciales}</span>
-                            <button className="btn btn-sm btn-ghost" onClick={()=>setAsignados({...asignados,[l.id]:null})}><IcoX size={11}/></button>
-                          </div>
-                        ) : (
-                          <select className="input" style={{padding:'3px 6px',fontSize:11.5}} onChange={e=>asignar(l.id, e.target.value)} defaultValue="">
-                            <option value="" disabled>Elegir…</option>
-                            {rrOrder.map(v=><option key={v.id} value={v.id}>{v.nombre}</option>)}
-                          </select>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {nuevos.map(l=>(
+                  <tr key={l.id}>
+                    <td>
+                      <div style={{fontSize:12.5,fontWeight:500}}>{l.contacto}</div>
+                      <div className="muted" style={{fontSize:11}}>{l.empresa || '—'}</div>
+                    </td>
+                    <td><ChipCanal canal={l.canal_tipo || 'whatsapp'}/></td>
+                    <td className="mono muted" style={{fontSize:11.5}}>{relTime(new Date(l.ultima_interaccion || l.created_at || Date.now()).getTime())}</td>
+                    <td>
+                      <select className="input" style={{padding:'3px 6px',fontSize:11.5}} onChange={e=>{ if(e.target.value) asignar(l.id, e.target.value); }} defaultValue="">
+                        <option value="" disabled>Elegir…</option>
+                        {vendedores.map(v=><option key={v.id} value={v.id}>{v.nombre}</option>)}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+                {nuevos.length===0 && <tr><td colSpan={4} className="muted" style={{fontSize:12,padding:16}}>Nada pendiente de asignar.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -85,29 +110,27 @@ function Asignacion() {
 
         {/* Carga por vendedor */}
         <div className="card">
-          <div className="card-hd"><h3>Distribución por vendedor</h3><span className="card-sub">{Object.keys(asignados).length} nuevos asignados esta sesión</span></div>
+          <div className="card-hd"><h3>Distribución por vendedor</h3><span className="card-sub">leads activos actuales</span></div>
           <div className="card-body" style={{padding:0}}>
-            {VENDEDORES.map((v,i)=>{
-              const addr = Object.values(asignados).filter(x => x === v.id).length;
-              const total = v.cargaActual + addr;
+            {vendedores.map((v,i)=>{
               const max = 20;
               return (
-                <div key={v.id} className="row" style={{padding:'12px 16px',borderBottom:i<VENDEDORES.length-1?'1px solid var(--line-2)':'0',gap:12}}>
+                <div key={v.id} className="row" style={{padding:'12px 16px',borderBottom:i<vendedores.length-1?'1px solid var(--line-2)':'0',gap:12}}>
                   <Avatar vendedor={v} size={30}/>
                   <div style={{flex:1,minWidth:0}}>
                     <div className="row" style={{justifyContent:'space-between'}}>
                       <div style={{fontSize:13,fontWeight:500}}>{v.nombre}</div>
-                      <div className="mono" style={{fontSize:11.5}}>{v.cargaActual}{addr>0 && <b style={{color:'var(--ok)'}}> +{addr}</b>} / {max}</div>
+                      <div className="mono" style={{fontSize:11.5}}>{v.cargaActual} / {max}</div>
                     </div>
                     <div style={{height:4,background:'var(--line-2)',borderRadius:2,overflow:'hidden',marginTop:5}}>
-                      <div style={{width:(v.cargaActual/max*100)+'%',height:'100%',background:'var(--ink-3)'}}/>
-                      {addr>0 && <div style={{width:(addr/max*100)+'%',height:'100%',background:'var(--accent)',marginTop:-4}}/>}
+                      <div style={{width:Math.min(100,v.cargaActual/max*100)+'%',height:'100%',background:'var(--ink-3)'}}/>
                     </div>
-                    <div className="muted" style={{fontSize:11,marginTop:3}}>{v.zona} · <span className="pill" style={{fontSize:10}}>{v.estado}</span></div>
+                    <div className="muted" style={{fontSize:11,marginTop:3}}>{v.zona || '—'}</div>
                   </div>
                 </div>
               );
             })}
+            {vendedores.length===0 && <div className="muted" style={{fontSize:12,padding:16}}>Sin vendedores.</div>}
           </div>
         </div>
       </div>
@@ -116,33 +139,36 @@ function Asignacion() {
 }
 
 // ─── Pipeline Kanban ──────────────────────────────────────────────────────
-function Pipeline({ rol, rolVendedor }) {
-  const base = rol === 'gerente' ? LEADS : LEADS.filter(l => l.asignadoA === rolVendedor);
-  const [etapas, setEtapas] = React.useState(() => {
-    const m = {};
-    base.forEach(l => { m[l.id] = l.etapa; });
-    return m;
-  });
-  const [showFilter, setShowFilter] = React.useState(false);
+function Pipeline() {
+  const { data, err, reload } = useBackendData(() => ApiClient.getLeads({ limit: '200' }).then(r => r.data || []));
   const [filtroPrio, setFiltroPrio] = React.useState('todas');
   const [dragId, setDragId] = React.useState(null);
   const [dragOver, setDragOver] = React.useState(null);
   const toast = useToast();
 
+  if (err) return <div className="page"><div className="card" style={{padding:24,color:'var(--accent)'}}>Error: {err}</div></div>;
+  if (!data) return <div className="page"><div className="muted" style={{padding:24,fontSize:13}}>Cargando pipeline…</div></div>;
+
+  const base = data.map(l => ({
+    id: l.id, contacto: l.contacto, empresa: l.empresa, prioridad: l.prioridad || 'media',
+    etapa: l.etapa, monto: N(l.monto_estimado), canal: l.canal_tipo || 'whatsapp',
+    asignadoA: l.vendedor_id, motivoNoCierre: l.motivo_no_cierre,
+  }));
   const leadsFiltered = base.filter(l => filtroPrio === 'todas' || l.prioridad === filtroPrio);
 
   const moveLead = (id, newEtapa) => {
-    if (etapas[id] === newEtapa) return;
-    setEtapas(e => ({...e, [id]: newEtapa}));
     const l = base.find(x => x.id === id);
+    if (!l || l.etapa === newEtapa) return;
     const et = ETAPAS.find(x => x.id === newEtapa);
-    toast(l.contacto + ' → ' + et.label, 'ok');
+    ApiClient.updateEtapa(id, newEtapa)
+      .then(() => { toast(l.contacto + ' → ' + (et ? et.label : newEtapa), 'ok'); reload(); })
+      .catch(e => toast('Error: ' + e.message, 'bad'));
   };
 
   return (
     <div className="page" style={{paddingRight:24,overflow:'hidden'}}>
       <div className="row" style={{marginBottom:16,gap:8}}>
-        <span className="muted" style={{fontSize:12}}>{leadsFiltered.length} leads · {leadsFiltered.filter(l=>!['cerrado','no_cierre'].includes(etapas[l.id])).length} abiertos</span>
+        <span className="muted" style={{fontSize:12}}>{leadsFiltered.length} leads · {leadsFiltered.filter(l=>!['cerrado','no_cierre'].includes(l.etapa)).length} abiertos</span>
         <div style={{flex:1}}/>
         <div className="row" style={{gap:4}}>
           <span className="muted" style={{fontSize:11.5}}>Prioridad:</span>
@@ -153,7 +179,7 @@ function Pipeline({ rol, rolVendedor }) {
       </div>
       <div style={{display:'grid',gridTemplateColumns:`repeat(${ETAPAS.length},minmax(240px,1fr))`,gap:12,overflowX:'auto'}}>
         {ETAPAS.map(e=>{
-          const leads = leadsFiltered.filter(l => etapas[l.id] === e.id);
+          const leads = leadsFiltered.filter(l => l.etapa === e.id);
           const monto = leads.reduce((s,l)=>s+l.monto,0);
           const isDragOver = dragOver === e.id;
           return (
@@ -179,19 +205,18 @@ function Pipeline({ rol, rolVendedor }) {
                     onDragEnd={()=>{setDragId(null);setDragOver(null);}}
                     style={{padding:10,cursor:'grab',opacity:dragId===l.id?0.4:1}}>
                     <div className="row" style={{justifyContent:'space-between',marginBottom:6}}>
-                      <span className="muted mono" style={{fontSize:10}}>{l.id}</span>
+                      <span className="muted mono" style={{fontSize:10}}>{String(l.id).slice(0,8)}</span>
                       <span className={'prio-dot prio-'+l.prioridad}/>
                     </div>
                     <div style={{fontSize:12.5,fontWeight:500,marginBottom:2}}>{l.contacto}</div>
-                    <div className="muted" style={{fontSize:10.5,marginBottom:8,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.empresa}</div>
+                    <div className="muted" style={{fontSize:10.5,marginBottom:8,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.empresa || '—'}</div>
                     <div className="row" style={{justifyContent:'space-between'}}>
                       <div className="row" style={{gap:4}}>
                         <ChipCanal canal={l.canal} size={10}/>
-                        {l.asignadoA && <Avatar vendedor={l.asignadoA} size={18}/>}
                       </div>
                       <span className="mono tabular" style={{fontSize:11}}>{money(l.monto)}</span>
                     </div>
-                    {etapas[l.id] === 'no_cierre' && l.motivoNoCierre && (
+                    {l.etapa === 'no_cierre' && l.motivoNoCierre && (
                       <div className="pill pill-bad" style={{marginTop:6,fontSize:10}}>{l.motivoNoCierre}</div>
                     )}
                   </div>
@@ -208,11 +233,11 @@ function Pipeline({ rol, rolVendedor }) {
 }
 
 // ─── Cotizaciones ─────────────────────────────────────────────────────────
-function Cotizaciones({ rol, rolVendedor }) {
-  const [showNueva, setShowNueva] = React.useState(false);
+function Cotizaciones() {
   const [verCot, setVerCot] = React.useState(null);
   const toast = useToast();
-  const base = rol === 'gerente' ? COTIZACIONES : COTIZACIONES.filter(c => c.vendedor === rolVendedor);
+  const { data, err } = useBackendData(() => ApiClient.getCotizaciones({ limit: '100' }).then(r => r.data || []));
+
   const badgeFor = (e) => {
     if (e === 'aceptada') return 'pill-ok';
     if (e === 'rechazada') return 'pill-bad';
@@ -220,30 +245,44 @@ function Cotizaciones({ rol, rolVendedor }) {
     if (e === 'enviada') return 'pill-accent';
     return '';
   };
+
+  if (err) return <div className="page"><div className="card" style={{padding:24,color:'var(--accent)'}}>Error: {err}</div></div>;
+  if (!data) return <div className="page"><div className="muted" style={{padding:24,fontSize:13}}>Cargando cotizaciones…</div></div>;
+
+  const base = data.map(c => ({
+    id: c.id, folio: c.folio, cliente: c.lead_empresa || c.lead_contacto || '—', contacto: c.lead_contacto || '',
+    vendedorId: c.vendedor_id, vendedorNombre: c.vendedor_nombre, estado: c.estado,
+    monto: N(c.monto_total), vigencia: c.vigencia_dias, numItems: N(c.num_items),
+    fecha: new Date(c.created_at),
+  }));
+  const enPipeline = base.filter(c => ['enviada','vista','pendiente'].includes(c.estado)).reduce((s,c)=>s+c.monto,0);
+  const ticket = base.length ? Math.round(base.reduce((s,c)=>s+c.monto,0)/base.length) : 0;
+  const inic = (nombre) => (nombre||'—').split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('').toUpperCase();
+
   return (
     <div className="page">
       <div className="grid-4" style={{marginBottom:16}}>
         <KpiCard label="Cotizaciones este mes" value={base.length}/>
         <KpiCard label="Aceptadas" value={base.filter(c=>c.estado==='aceptada').length}/>
-        <KpiCard label="Monto en pipeline" value={money(base.filter(c=>['enviada','vista','pendiente'].includes(c.estado)).reduce((s,c)=>s+c.monto,0))}/>
-        <KpiCard label="Ticket promedio" value={money(Math.round(base.reduce((s,c)=>s+c.monto,0)/base.length))}/>
+        <KpiCard label="Monto en pipeline" value={money(enPipeline)}/>
+        <KpiCard label="Ticket promedio" value={money(ticket)}/>
       </div>
       <div className="card">
         <div className="card-hd">
           <h3>Cotizaciones</h3>
-          <button className="btn btn-sm btn-accent" onClick={()=>setShowNueva(true)}><IcoPlus size={12}/>Nueva cotización</button>
+          <button className="btn btn-sm" onClick={()=>toast('Crear cotización: editor de productos pendiente de implementar','info')}><IcoPlus size={12}/>Nueva cotización</button>
         </div>
         <table className="tbl">
           <thead><tr><th>Folio</th><th>Cliente</th><th>Vendedor</th><th>Fecha</th><th>Vigencia</th><th>Estado</th><th style={{textAlign:'right'}}>Monto</th><th></th></tr></thead>
           <tbody>
             {base.map(c=>(
               <tr key={c.id} style={{cursor:'pointer'}} onClick={()=>setVerCot(c)}>
-                <td className="mono" style={{fontSize:12}}>{c.id}</td>
+                <td className="mono" style={{fontSize:12}}>{c.folio}</td>
                 <td>
                   <div style={{fontSize:12.5,fontWeight:500}}>{c.cliente}</div>
                   <div className="muted" style={{fontSize:11}}>{c.contacto}</div>
                 </td>
-                <td><div className="row" style={{gap:6}}><Avatar vendedor={c.vendedor} size={22}/><span style={{fontSize:12}}>{VENDEDORES.find(v=>v.id===c.vendedor)?.iniciales}</span></div></td>
+                <td><div className="row" style={{gap:6}}><Avatar vendedor={{id:c.vendedorId,nombre:c.vendedorNombre,iniciales:inic(c.vendedorNombre)}} size={22}/><span style={{fontSize:12}}>{inic(c.vendedorNombre)}</span></div></td>
                 <td className="mono muted" style={{fontSize:11.5}}>{c.fecha.toLocaleDateString('es-MX',{day:'2-digit',month:'short'})}</td>
                 <td className="mono muted" style={{fontSize:11.5}}>{c.vigencia} días</td>
                 <td><span className={'pill '+badgeFor(c.estado)}>{c.estado}</span></td>
@@ -251,27 +290,14 @@ function Cotizaciones({ rol, rolVendedor }) {
                 <td><IcoChevronR size={12}/></td>
               </tr>
             ))}
+            {base.length===0 && <tr><td colSpan={8} className="muted" style={{fontSize:12,padding:16}}>Sin cotizaciones.</td></tr>}
           </tbody>
         </table>
       </div>
 
-      <Modal open={showNueva} onClose={()=>setShowNueva(false)} title="Nueva cotización" width={560}
-        footer={<>
-          <button className="btn" onClick={()=>setShowNueva(false)}>Cancelar</button>
-          <button className="btn btn-accent" onClick={()=>{setShowNueva(false);toast('Cotización COT-2065 creada','ok');}}><IcoPlus size={12}/>Crear cotización</button>
-        </>}>
-        <div className="stack" style={{gap:12}}>
-          <div><div className="kpi-label" style={{marginBottom:4}}>Cliente</div><select className="input"><option>—Seleccionar lead—</option>{LEADS.slice(0,10).map(l=><option key={l.id}>{l.empresa} · {l.contacto}</option>)}</select></div>
-          <div className="grid-2"><div><div className="kpi-label" style={{marginBottom:4}}>Vigencia</div><select className="input"><option>7 días</option><option>15 días</option><option>30 días</option></select></div><div><div className="kpi-label" style={{marginBottom:4}}>Enviar por</div><select className="input"><option>WhatsApp</option><option>Correo</option><option>Ambos</option></select></div></div>
-          <div><div className="kpi-label" style={{marginBottom:4}}>Notas al cliente</div><textarea className="input" rows={3} defaultValue="Adjunto cotización con los productos solicitados."/></div>
-        </div>
-      </Modal>
-
-      <Modal open={!!verCot} onClose={()=>setVerCot(null)} title={verCot ? 'Cotización ' + verCot.id : ''} width={620}
+      <Modal open={!!verCot} onClose={()=>setVerCot(null)} title={verCot ? 'Cotización ' + verCot.folio : ''} width={560}
         footer={<>
           <button className="btn" onClick={()=>setVerCot(null)}>Cerrar</button>
-          <button className="btn"><IcoDoc size={12}/>Descargar PDF</button>
-          <button className="btn btn-primary"><IcoSend size={12}/>Reenviar</button>
         </>}>
         {verCot && (
           <>
@@ -282,14 +308,11 @@ function Cotizaciones({ rol, rolVendedor }) {
               </div>
               <span className={'pill ' + badgeFor(verCot.estado)}>{verCot.estado}</span>
             </div>
-            <table className="tbl" style={{fontSize:12}}>
-              <thead><tr><th>Producto</th><th>Cant.</th><th>Precio</th><th style={{textAlign:'right'}}>Subtotal</th></tr></thead>
-              <tbody>
-                {verCot.productos.map((p,i)=>(
-                  <tr key={i}><td>{p.nombre}</td><td className="mono">{p.cantidad}</td><td className="mono">{money(p.precio)}</td><td className="mono" style={{textAlign:'right'}}>{money(p.cantidad*p.precio)}</td></tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="stack" style={{gap:8}}>
+              <div className="row" style={{justifyContent:'space-between'}}><span className="muted" style={{fontSize:12}}>Vendedor</span><span style={{fontSize:12.5}}>{verCot.vendedorNombre || '—'}</span></div>
+              <div className="row" style={{justifyContent:'space-between'}}><span className="muted" style={{fontSize:12}}>Vigencia</span><span className="mono" style={{fontSize:12.5}}>{verCot.vigencia} días</span></div>
+              <div className="row" style={{justifyContent:'space-between'}}><span className="muted" style={{fontSize:12}}>Partidas</span><span className="mono" style={{fontSize:12.5}}>{verCot.numItems}</span></div>
+            </div>
             <div className="row" style={{justifyContent:'space-between',paddingTop:12,marginTop:8,borderTop:'1px solid var(--line)'}}>
               <span className="muted" style={{fontSize:12}}>Total</span>
               <span className="mono tabular" style={{fontSize:16,fontWeight:600}}>{money(verCot.monto)}</span>
@@ -302,11 +325,20 @@ function Cotizaciones({ rol, rolVendedor }) {
 }
 
 // ─── Remarketing ──────────────────────────────────────────────────────────
-function Remarketing({ rol, rolVendedor }) {
+function Remarketing() {
   const toast = useToast();
   const [recontactados, setRecontactados] = React.useState({});
   const [camps, setCamps] = React.useState({});
-  const base = (rol === 'gerente' ? LEADS : LEADS.filter(l=>l.asignadoA===rolVendedor)).filter(l=>l.etapa==='no_cierre');
+  const { data, err } = useBackendData(() => ApiClient.getLeads({ etapa: 'no_cierre', limit: '200' }).then(r => r.data || []));
+
+  if (err) return <div className="page"><div className="card" style={{padding:24,color:'var(--accent)'}}>Error: {err}</div></div>;
+  if (!data) return <div className="page"><div className="muted" style={{padding:24,fontSize:13}}>Cargando…</div></div>;
+
+  const base = data.map(l => ({
+    id: l.id, contacto: l.contacto, empresa: l.empresa,
+    monto: N(l.monto_estimado), motivoNoCierre: l.motivo_no_cierre || 'Sin motivo',
+    createdAt: new Date(l.created_at || Date.now()).getTime(),
+  }));
   const motivos = {};
   base.forEach(l => { motivos[l.motivoNoCierre] = (motivos[l.motivoNoCierre]||0)+1; });
   const total = base.reduce((s,l)=>s+l.monto,0);
@@ -396,15 +428,36 @@ function Remarketing({ rol, rolVendedor }) {
 // ─── KPIs ─────────────────────────────────────────────────────────────────
 function KpisView() {
   const [sort, setSort] = React.useState('ingresos');
-  const sorted = [...VENDEDORES].sort((a,b) => (KPIS[b.id][sort] || 0) - (KPIS[a.id][sort] || 0));
-  const maxMsgs = Math.max(...VENDEDORES.map(v=>KPIS[v.id].msgs));
+  const { data, err } = useBackendData(() => ApiClient.getKpis('mes').then(r => r.data || []));
+
+  if (err) return <div className="page"><div className="card" style={{padding:24,color:'var(--accent)'}}>Error: {err}</div></div>;
+  if (!data) return <div className="page"><div className="muted" style={{padding:24,fontSize:13}}>Cargando KPIs…</div></div>;
+
+  const rows = data.map(r => ({
+    ...vendedorFromKpiRow(r),
+    msgs: N(r.mensajes_enviados) + N(r.mensajes_recibidos),
+    respMin: r.tiempo_respuesta_min_promedio != null ? Number(r.tiempo_respuesta_min_promedio) : null,
+    cotiz: N(r.cotizaciones_enviadas),
+    cerradas: N(r.leads_cerrados),
+    tasa: N(r.tasa_conversion_pct),
+    ingresos: N(r.ingresos_periodo),
+  }));
+  const sorted = [...rows].sort((a,b) => (b[sort] || 0) - (a[sort] || 0));
+  const maxMsgs = Math.max(1, ...rows.map(v=>v.msgs));
+  const totMsgs = rows.reduce((s,k)=>s+k.msgs,0);
+  const conResp = rows.filter(k=>k.respMin!=null);
+  const respEquipo = conResp.length ? (conResp.reduce((s,k)=>s+k.respMin,0)/conResp.length).toFixed(1)+' min' : '—';
+  const totCotiz = rows.reduce((s,k)=>s+k.cotiz,0);
+  const totCerr = rows.reduce((s,k)=>s+k.cerradas,0);
+  const tasaGlobal = totCotiz ? Math.round(totCerr/totCotiz*100) : 0;
+
   return (
     <div className="page">
       <div className="grid-4" style={{marginBottom:16}}>
-        <KpiCard label="Mensajes totales" value={Object.values(KPIS).reduce((s,k)=>s+k.msgs,0).toLocaleString()} spark={SERIES.leadsEntrantes}/>
-        <KpiCard label="Resp. promedio equipo" value={(Object.values(KPIS).reduce((s,k)=>s+k.respMin,0)/11).toFixed(1)+' min'} spark={SERIES.respuestaMin} sparkColor="var(--info)"/>
-        <KpiCard label="Cotizaciones enviadas" value={Object.values(KPIS).reduce((s,k)=>s+k.cotiz,0)} spark={SERIES.cotizDiarias} sparkColor="var(--warn)"/>
-        <KpiCard label="Tasa conversión global" value={pct(Object.values(KPIS).reduce((s,k)=>s+k.cerradas,0)/Object.values(KPIS).reduce((s,k)=>s+k.cotiz,0))} spark={SERIES.leadsCerrados} sparkColor="var(--ok)"/>
+        <KpiCard label="Mensajes totales" value={totMsgs.toLocaleString()}/>
+        <KpiCard label="Resp. promedio equipo" value={respEquipo}/>
+        <KpiCard label="Cotizaciones enviadas" value={totCotiz}/>
+        <KpiCard label="Tasa conversión global" value={tasaGlobal+'%'}/>
       </div>
 
       <div className="card">
@@ -424,29 +477,27 @@ function KpisView() {
             <th>Cerradas</th><th>Tasa</th><th style={{textAlign:'right'}}>Ingresos</th>
           </tr></thead>
           <tbody>
-            {sorted.map((v,i)=>{
-              const k = KPIS[v.id];
-              return (
-                <tr key={v.id}>
-                  <td className="mono muted" style={{fontSize:11}}>{String(i+1).padStart(2,'0')}</td>
-                  <td><div className="row" style={{gap:8}}><Avatar vendedor={v} size={26}/><span style={{fontSize:13,fontWeight:500}}>{v.nombre}</span></div></td>
-                  <td className="muted" style={{fontSize:12}}>{v.zona}</td>
-                  <td>
-                    <div className="row" style={{gap:8}}>
-                      <div style={{width:80,height:6,background:'var(--line-2)',borderRadius:3,overflow:'hidden'}}>
-                        <div style={{width:(k.msgs/maxMsgs*100)+'%',height:'100%',background:'var(--ink-3)'}}/>
-                      </div>
-                      <span className="mono tabular" style={{fontSize:12}}>{k.msgs}</span>
+            {sorted.map((k,i)=>(
+              <tr key={k.id}>
+                <td className="mono muted" style={{fontSize:11}}>{String(i+1).padStart(2,'0')}</td>
+                <td><div className="row" style={{gap:8}}><Avatar vendedor={k} size={26}/><span style={{fontSize:13,fontWeight:500}}>{k.nombre}</span></div></td>
+                <td className="muted" style={{fontSize:12}}>{k.zona || '—'}</td>
+                <td>
+                  <div className="row" style={{gap:8}}>
+                    <div style={{width:80,height:6,background:'var(--line-2)',borderRadius:3,overflow:'hidden'}}>
+                      <div style={{width:(k.msgs/maxMsgs*100)+'%',height:'100%',background:'var(--ink-3)'}}/>
                     </div>
-                  </td>
-                  <td className={'mono tabular ' + (k.respMin < 5 ? 'pill pill-ok' : k.respMin > 8 ? 'pill pill-bad' : 'pill')} style={{fontSize:11.5,display:'inline-block',padding:'2px 7px'}}>{k.respMin} min</td>
-                  <td className="mono tabular">{k.cotiz}</td>
-                  <td className="mono tabular">{k.cerradas}</td>
-                  <td className="mono tabular" style={{fontWeight:500}}>{pct(k.tasa)}</td>
-                  <td className="tabular mono" style={{textAlign:'right',fontWeight:500}}>{money(k.ingresos)}</td>
-                </tr>
-              );
-            })}
+                    <span className="mono tabular" style={{fontSize:12}}>{k.msgs}</span>
+                  </div>
+                </td>
+                <td className="mono tabular" style={{fontSize:11.5}}>{k.respMin != null ? k.respMin+' min' : '—'}</td>
+                <td className="mono tabular">{k.cotiz}</td>
+                <td className="mono tabular">{k.cerradas}</td>
+                <td className="mono tabular" style={{fontWeight:500}}>{k.tasa}%</td>
+                <td className="tabular mono" style={{textAlign:'right',fontWeight:500}}>{money(k.ingresos)}</td>
+              </tr>
+            ))}
+            {sorted.length===0 && <tr><td colSpan={9} className="muted" style={{fontSize:12,padding:16}}>Sin vendedores.</td></tr>}
           </tbody>
         </table>
       </div>
