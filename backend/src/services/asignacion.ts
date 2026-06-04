@@ -58,7 +58,7 @@ export class AsignacionService {
     }
 
     await query(
-      'UPDATE leads SET asignado_a = $1, ultima_interaccion = NOW() WHERE id = $2',
+      "UPDATE leads SET asignado_a = $1, ultima_interaccion = NOW(), etapa = CASE WHEN etapa = 'nuevo' THEN 'contactado' ELSE etapa END WHERE id = $2",
       [vendedorId, leadId]
     );
 

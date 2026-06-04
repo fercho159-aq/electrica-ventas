@@ -25,6 +25,7 @@ import kpisPlugin from './routes/kpis';
 import dashboardPlugin from './routes/dashboard';
 import canalesPlugin from './routes/canales';
 import asignacionPlugin from './routes/asignacion';
+import mediaPlugin from './routes/media';
 import webhookWaPlugin from './routes/webhook-wa';
 
 declare module 'fastify' {
@@ -194,6 +195,7 @@ async function buildApp(): Promise<FastifyInstance> {
   await fastify.register(dashboardPlugin, { prefix: '/api/dashboard' });
   await fastify.register(canalesPlugin, { prefix: '/api/canales' });
   await fastify.register(asignacionPlugin, { prefix: '/api/asignacion' });
+  await fastify.register(mediaPlugin, { prefix: '/api/media' });
 
   // ─── WEBHOOK (PUBLIC, NO JWT) ────────────────────────────────────
   await fastify.register(webhookWaPlugin, { prefix: '/webhook/wa' });

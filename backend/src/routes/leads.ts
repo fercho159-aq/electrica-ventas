@@ -40,7 +40,7 @@ const leadsPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
             prioridad: { type: 'string' },
             buscar: { type: 'string' },
             page: { type: 'integer', minimum: 1, default: 1 },
-            limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+            limit: { type: 'integer', minimum: 1, maximum: 500, default: 20 },
           },
         },
       },
@@ -470,7 +470,7 @@ const leadsPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       }
 
       await query(
-        'UPDATE leads SET asignado_a = $1, ultima_interaccion = NOW() WHERE id = $2',
+        "UPDATE leads SET asignado_a = $1, ultima_interaccion = NOW(), etapa = CASE WHEN etapa = 'nuevo' THEN 'contactado' ELSE etapa END WHERE id = $2",
         [vendedor_id, id]
       );
 

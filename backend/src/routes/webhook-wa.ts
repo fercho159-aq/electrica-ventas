@@ -188,11 +188,18 @@ async function processWhatsAppMessage(
       break;
     case 'audio':
       tipoMedia = 'audio';
+      mediaUrl = message.audio?.id ? `wa_media:${message.audio.id}` : null;
       texto = '[Audio]';
       break;
     case 'video':
       tipoMedia = 'video';
+      mediaUrl = message.video?.id ? `wa_media:${message.video.id}` : null;
       texto = message.video?.caption ?? '[Video]';
+      break;
+    case 'sticker':
+      tipoMedia = 'image';
+      mediaUrl = message.sticker?.id ? `wa_media:${message.sticker.id}` : null;
+      texto = '[Sticker]';
       break;
     default:
       texto = `[${message.type}]`;

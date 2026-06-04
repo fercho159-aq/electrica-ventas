@@ -13,6 +13,10 @@ export interface MensajeSalienteJob {
   tipo: 'whatsapp' | 'email';
   vendedorId: string;
   cotizacionId?: string;
+  // Media saliente (opcional)
+  mediaType?: 'image' | 'audio' | 'video' | 'document' | 'sticker';
+  mediaId?: string;
+  mediaFilename?: string;
 }
 
 interface LeadRow {
@@ -74,7 +78,18 @@ const worker = new Worker<MensajeSalienteJob>(
 
       const { accessToken, phoneNumberId } = await whatsappService.getCredentialsForChannel(canalId);
 
-      if (cotizacionId) {
+      if (job.data.mediaType && job.data.mediaId) {
+        // Envío de media (imagen/audio/video/documento/sticker) por media_id
+        waMessageId = await whatsappService.sendMediaById(
+          accessToken,
+          phoneNumberId,
+          lead.telefono,
+          job.data.mediaType,
+          job.data.mediaId,
+          texto,
+          job.data.mediaFilename
+        );
+      } else if (cotizacionId) {
         // Send document via WhatsApp
         const cotizacionDocUrl = `${config.API_BASE_URL}/api/cotizaciones/${cotizacionId}/pdf`;
         waMessageId = await whatsappService.sendDocument(

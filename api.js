@@ -63,6 +63,30 @@ window.ApiClient = {
   asignarLead(id, vId){ return this._fetch(`/api/leads/${id}/asignar`, { method: 'PATCH', body: JSON.stringify({ vendedor_id: vId }) }); },
 
   // Mensajes
+  // URL para <img>/<a> de media de WhatsApp (token por query porque <img> no manda headers)
+  mediaSrc(mensajeId) {
+    return `${API_BASE}/api/media/${mensajeId}?token=${this.token}`;
+  },
+  // Envía un archivo (imagen/audio/video/documento/sticker) por WhatsApp
+  sendMediaFile(leadId, file, caption) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataB64 = String(reader.result).split(',')[1];
+        this._fetch(`/api/leads/${leadId}/media`, {
+          method: 'POST',
+          body: JSON.stringify({
+            filename: file.name,
+            mime: file.type || 'application/octet-stream',
+            dataB64,
+            caption: caption || undefined,
+          }),
+        }).then(resolve).catch(reject);
+      };
+      reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+      reader.readAsDataURL(file);
+    });
+  },
   getMensajes(leadId, cursor) {
     const p = cursor ? `?cursor=${cursor}` : '';
     return this._fetch(`/api/leads/${leadId}/mensajes${p}`);

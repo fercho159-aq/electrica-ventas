@@ -2,6 +2,18 @@
 
 // ─── Hooks de datos ──────────────────────────────────────────────────────────
 
+// Detecta viewport móvil (≤820px) reactivamente
+function useIsMobile() {
+  const [m, setM] = React.useState(typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches);
+  React.useEffect(() => {
+    const mq = window.matchMedia('(max-width: 820px)');
+    const on = () => setM(mq.matches);
+    mq.addEventListener ? mq.addEventListener('change', on) : mq.addListener(on);
+    return () => { mq.removeEventListener ? mq.removeEventListener('change', on) : mq.removeListener(on); };
+  }, []);
+  return m;
+}
+
 function useLeadsAPI(rol, rolVendedor, isLiveMode) {
   const [leads, setLeads] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -94,6 +106,8 @@ function useMensajesAPI(lead, isLiveMode) {
           canal: m.canal_tipo === 'email' ? 'email' : 'whatsapp',
           ts: new Date(m.ts).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
           texto: m.texto || '[media]',
+          tipoMedia: m.tipo_media || null,
+          tieneMedia: !!(m.media_url && String(m.media_url).startsWith('wa_media:')),
           estado: m.estado,
           errorDetalle: m.error_detalle,
           _raw: m,
@@ -198,12 +212,15 @@ function Inbox({ rol, rolVendedor, setRoute, isLiveMode = false }) {
     (a.ultimaInteraccion || new Date(a.ultima_interaccion).getTime())
   );
 
-  const current = selected || leadsFiltered[0] || null;
+  const isMobile = useIsMobile();
+  // En móvil no auto-seleccionamos el primero: lista o detalle, no ambos
+  const current = (isMobile ? selected : (selected || leadsFiltered[0])) || null;
 
   return (
-    <div style={{flex:1,display:'grid',gridTemplateColumns:'420px 1fr',minHeight:0,overflow:'hidden'}}>
+    <div className="inbox-grid" style={{flex:1,display:'grid',gridTemplateColumns:'420px 1fr',minHeight:0,overflow:'hidden'}}>
       {/* Lista */}
-      <div style={{borderRight:'1px solid var(--line)',display:'flex',flexDirection:'column',minHeight:0}}>
+      {(!isMobile || !current) && (
+      <div className="inbox-list" style={{borderRight:'1px solid var(--line)',display:'flex',flexDirection:'column',minHeight:0}}>
         <div style={{padding:'14px 16px',borderBottom:'1px solid var(--line)',display:'flex',flexDirection:'column',gap:10}}>
           <div className="row" style={{gap:8}}>
             <div className="search-box" style={{flex:1}}>
@@ -266,20 +283,24 @@ function Inbox({ rol, rolVendedor, setRoute, isLiveMode = false }) {
           })}
         </div>
       </div>
+      )}
 
       {/* Detalle */}
-      {current
-        ? <LeadDetail lead={current} rol={rol} isLiveMode={isLiveMode} onLeadUpdated={reload}/>
-        : <div className="page muted" style={{display:'grid',placeItems:'center',fontSize:13}}>
-            {isLiveMode ? 'Esperando mensajes de WhatsApp…' : 'Sin selección'}
-          </div>}
+      {(!isMobile || current) && (
+        current
+          ? <LeadDetail lead={current} rol={rol} isLiveMode={isLiveMode} onLeadUpdated={reload}
+              isMobile={isMobile} onBack={()=>setSelected(null)}/>
+          : <div className="page muted" style={{display:'grid',placeItems:'center',fontSize:13}}>
+              {isLiveMode ? 'Selecciona un lead' : 'Sin selección'}
+            </div>
+      )}
     </div>
   );
 }
 
 // ─── Lead Detail ─────────────────────────────────────────────────────────────
 
-function LeadDetail({ lead, rol, isLiveMode, onLeadUpdated }) {
+function LeadDetail({ lead, rol, isLiveMode, onLeadUpdated, isMobile, onBack }) {
   const [draft, setDraft] = React.useState('');
   const [tab, setTab]     = React.useState('conversacion');
   const [canalActivo, setCanalActivo] = React.useState('whatsapp');
@@ -350,17 +371,108 @@ function LeadDetail({ lead, rol, isLiveMode, onLeadUpdated }) {
     }
   };
 
+  // Grabación de nota de voz (micrófono) estilo WhatsApp
+  const [recording, setRecording] = React.useState(false);
+  const [recSecs, setRecSecs] = React.useState(0);
+  const recRef = React.useRef(null);
+  const chunksRef = React.useRef([]);
+  const cancelRef = React.useRef(false);
+  const timerRef = React.useRef(null);
+  const fmtSecs = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+
+  const startRec = async () => {
+    if (!isLiveMode) { toast('Modo demo: grabar no disponible', 'info'); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) ? 'audio/ogg;codecs=opus'
+        : (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) ? 'audio/webm;codecs=opus'
+        : 'audio/webm';
+      const rec = new MediaRecorder(stream, { mimeType: mime });
+      chunksRef.current = [];
+      cancelRef.current = false;
+      rec.ondataavailable = (e) => { if (e.data && e.data.size) chunksRef.current.push(e.data); };
+      rec.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        clearInterval(timerRef.current);
+        setRecording(false);
+        setRecSecs(0);
+        if (cancelRef.current) return; // cancelado: descartar
+        const base = mime.split(';')[0];
+        const ext = base.includes('ogg') ? 'ogg' : 'webm';
+        const blob = new Blob(chunksRef.current, { type: base });
+        if (!blob.size) return;
+        const file = new File([blob], `nota-voz.${ext}`, { type: base });
+        setSending(true);
+        try { await ApiClient.sendMediaFile(lead.id, file); toast('Nota de voz enviada', 'ok'); }
+        catch (err) { toast('Error al enviar audio: ' + err.message, 'bad'); }
+        finally { setSending(false); }
+      };
+      recRef.current = rec;
+      rec.start();
+      setRecording(true);
+      setRecSecs(0);
+      timerRef.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
+    } catch (err) {
+      toast('No se pudo acceder al micrófono: ' + err.message, 'bad');
+    }
+  };
+  const stopRec = () => { recRef.current && recRef.current.stop(); };
+  const cancelRec = () => { cancelRef.current = true; recRef.current && recRef.current.stop(); };
+
+  // Stickers predefinidos para vendedores (webp 512x512 en /assets/stickers)
+  const STICKERS = [1, 2, 3, 4, 5, 6];
+  const [stickerOpen, setStickerOpen] = React.useState(false);
+  const sendSticker = async (n) => {
+    setStickerOpen(false);
+    if (!isLiveMode) { toast('Modo demo: stickers no disponibles', 'info'); return; }
+    setSending(true);
+    try {
+      const res = await fetch(`/assets/stickers/${n}.webp`);
+      if (!res.ok) throw new Error('No se encontró el sticker');
+      const blob = await res.blob();
+      const file = new File([blob], `${n}.webp`, { type: 'image/webp' });
+      await ApiClient.sendMediaFile(lead.id, file);
+      toast('Sticker enviado', 'ok');
+    } catch (err) {
+      toast('Error al enviar sticker: ' + err.message, 'bad');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const fileRef = React.useRef(null);
+  const onPickFile = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!isLiveMode) { toast('Modo demo: adjuntar no disponible', 'info'); return; }
+    setSending(true);
+    try {
+      await ApiClient.sendMediaFile(lead.id, file, draft.trim() || undefined);
+      setDraft('');
+      toast('Archivo enviado', 'ok');
+    } catch (err) {
+      toast('Error al enviar archivo: ' + err.message, 'bad');
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
-    <div style={{display:'grid',gridTemplateColumns:'1fr 300px',minHeight:0,overflow:'hidden'}}>
+    <div className="lead-grid" style={{display:'grid',gridTemplateColumns:'1fr 300px',minHeight:0,overflow:'hidden'}}>
       {/* Conversación */}
       <div style={{display:'flex',flexDirection:'column',minHeight:0}}>
         {/* Header */}
         <div style={{padding:'14px 20px',borderBottom:'1px solid var(--line)',display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
-          <div style={{minWidth:0}}>
+          <button className="icon-btn inbox-back" title="Volver" onClick={onBack}
+            style={{flexShrink:0,marginRight:4}}>
+            <span style={{display:'grid',transform:'rotate(180deg)'}}><IcoChevronR size={18}/></span>
+          </button>
+          <div style={{minWidth:0,flex:1}}>
             <div className="row" style={{gap:8,flexWrap:'wrap'}}>
-              <h3 style={{margin:0,fontSize:16,fontWeight:600}}>{lead.contacto}</h3>
+              <h3 className="lead-title" style={{margin:0,fontSize:16,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}}>{lead.contacto}</h3>
               <ChipEtapa etapa={lead.etapa}/>
-              <span className="pill mono" style={{fontSize:10.5}}>{String(lead.id).slice(0,8)}</span>
+              <span className="pill mono hide-mobile" style={{fontSize:10.5}}>{String(lead.id).slice(0,8)}</span>
               {isLiveMode && (
                 <span className="pill pill-ok" style={{fontSize:9.5}}>● LIVE</span>
               )}
@@ -368,14 +480,14 @@ function LeadDetail({ lead, rol, isLiveMode, onLeadUpdated }) {
             <div className="muted" style={{fontSize:12,marginTop:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
               {lead.empresa && <span>{lead.empresa} · </span>}
               <span className="mono">{lead.telefono}</span>
-              {lead.email && <span> · {lead.email}</span>}
+              {lead.email && <span className="hide-mobile"> · {lead.email}</span>}
             </div>
           </div>
-          <div className="row" style={{gap:6,flexShrink:0}}>
-            <button className="btn btn-sm" onClick={()=>setShowLlamar(true)}><IcoPhone size={13}/>Llamar</button>
-            <button className="btn btn-sm" onClick={()=>setShowCotizar(true)}><IcoDoc size={13}/>Cotizar</button>
-            <button className={'btn btn-sm '+(cerrada?'btn-accent':'btn-primary')} onClick={cerrar} disabled={cerrada}>
-              <IcoCheck size={13}/>{cerrada?'Cerrada':'Cerrar venta'}
+          <div className="row lead-actions" style={{gap:6,flexShrink:0}}>
+            <button className="btn btn-sm" onClick={()=>setShowLlamar(true)} title="Llamar"><IcoPhone size={13}/><span className="btn-label">Llamar</span></button>
+            <button className="btn btn-sm" onClick={()=>setShowCotizar(true)} title="Cotizar"><IcoDoc size={13}/><span className="btn-label">Cotizar</span></button>
+            <button className={'btn btn-sm '+(cerrada?'btn-accent':'btn-primary')} onClick={cerrar} disabled={cerrada} title="Cerrar venta">
+              <IcoCheck size={13}/><span className="btn-label">{cerrada?'Cerrada':'Cerrar venta'}</span>
             </button>
           </div>
         </div>
@@ -393,13 +505,19 @@ function LeadDetail({ lead, rol, isLiveMode, onLeadUpdated }) {
           ))}
         </div>
 
-        {/* Messages */}
-        <div style={{flex:1,overflowY:'auto',padding:'20px 28px',background:'var(--bg)'}}>
-          {msgs.map((m,i) => <Msg key={m.id||i} m={m} vendedor={v}/>)}
-          <div ref={bottomRef}/>
-        </div>
+        {/* Contenido según pestaña */}
+        {tab === 'conversacion' && (
+          <div className="chat-scroll" style={{flex:1,overflowY:'auto',padding:'20px 28px',background:'var(--bg)'}}>
+            {msgs.map((m,i) => <Msg key={m.id||i} m={m} vendedor={v}/>)}
+            <div ref={bottomRef}/>
+          </div>
+        )}
+        {tab === 'actividad'   && <ActividadTab lead={lead} msgs={msgs}/>}
+        {tab === 'cotizaciones'&& <CotizacionesLeadTab lead={lead} isLiveMode={isLiveMode}/>}
+        {tab === 'notas'       && <NotasTab lead={lead}/>}
 
-        {/* Compose */}
+        {/* Compose (solo en conversación) */}
+        {tab === 'conversacion' && (
         <div style={{borderTop:'1px solid var(--line)',padding:'12px 20px',background:'var(--panel)'}}>
           <div className="row" style={{gap:8,marginBottom:8}}>
             <button className={'btn btn-sm'+(canalActivo==='whatsapp'?' btn-primary':'')}
@@ -414,27 +532,82 @@ function LeadDetail({ lead, rol, isLiveMode, onLeadUpdated }) {
               </button>
             </span>
           </div>
-          <div className="row" style={{gap:8}}>
-            <textarea className="input" rows={2}
-              placeholder={canalActivo==='whatsapp'?'Mensaje por WhatsApp…':'Mensaje por correo…'}
-              value={draft}
-              onChange={e=>setDraft(e.target.value)}
-              onKeyDown={e=>{ if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();send();} }}
-              style={{resize:'none',flex:1}}/>
-            <button className="btn btn-accent" onClick={send}
-              disabled={!draft.trim()||sending}
-              style={{alignSelf:'stretch',minWidth:72}}>
-              {sending?'…':<><IcoSend size={14}/>Enviar</>}
-            </button>
-          </div>
+          <input ref={fileRef} type="file" style={{display:'none'}}
+            accept="image/*,audio/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.webp"
+            onChange={onPickFile}/>
+          {recording ? (
+            /* Barra de grabación (estilo WhatsApp) */
+            <div className="row" style={{gap:12,alignItems:'center',
+              border:'1px solid var(--line)',borderRadius:24,padding:'8px 14px',background:'var(--bg)'}}>
+              <button className="icon-btn" title="Cancelar" onClick={cancelRec}
+                style={{color:'#ef4444'}}><IcoTrash size={18}/></button>
+              <span style={{width:9,height:9,borderRadius:'50%',background:'#ef4444',flexShrink:0,
+                animation:'pulse 1s infinite'}}/>
+              <span className="mono" style={{fontSize:13}}>{fmtSecs(recSecs)}</span>
+              <span className="muted" style={{fontSize:12}}>Grabando nota de voz…</span>
+              <div style={{flex:1}}/>
+              <button className="icon-btn" title="Enviar" onClick={stopRec}
+                style={{background:'var(--accent)',color:'var(--accent-ink,#fff)',width:38,height:38,borderRadius:'50%'}}>
+                <IcoSend size={17}/>
+              </button>
+            </div>
+          ) : (
+            /* Barra normal: sticker + clip + texto + (mic | enviar) */
+            <div className="row" style={{gap:8,alignItems:'flex-end',position:'relative',
+              border:'1px solid var(--line)',borderRadius:24,padding:'6px 8px 6px 12px',background:'var(--bg)'}}>
+              {stickerOpen && (
+                <div className="card" style={{position:'absolute',bottom:'calc(100% + 8px)',left:0,
+                  padding:10,display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,
+                  width:240,boxShadow:'0 8px 24px rgba(0,0,0,0.15)',zIndex:20}}>
+                  {STICKERS.map(n=>(
+                    <button key={n} onClick={()=>sendSticker(n)} disabled={sending}
+                      style={{appearance:'none',border:'1px solid var(--line-2)',borderRadius:8,padding:4,
+                        background:'var(--panel)',cursor:'pointer'}}>
+                      <img src={`/assets/stickers/${n}.webp`} alt={'sticker '+n}
+                        style={{width:'100%',aspectRatio:'1',objectFit:'contain',display:'block'}}/>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button className="icon-btn" title="Stickers"
+                onClick={()=>setStickerOpen(o=>!o)}
+                disabled={sending||canalActivo!=='whatsapp'}
+                style={{flexShrink:0,color:stickerOpen?'var(--accent)':'var(--ink-3)'}}><IcoSticker size={20}/></button>
+              <button className="icon-btn" title="Adjuntar"
+                onClick={()=>fileRef.current&&fileRef.current.click()}
+                disabled={sending||canalActivo!=='whatsapp'}
+                style={{flexShrink:0,color:'var(--ink-3)'}}><IcoPaperclip size={20}/></button>
+              <textarea className="compose-input" rows={1}
+                placeholder={canalActivo==='whatsapp'?'Escribe un mensaje':'Mensaje por correo…'}
+                value={draft}
+                onChange={e=>setDraft(e.target.value)}
+                onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} }}
+                style={{resize:'none',flex:1,border:0,outline:'none',background:'transparent',
+                  fontSize:13.5,lineHeight:1.4,padding:'8px 4px',maxHeight:120,fontFamily:'inherit',color:'var(--ink)'}}/>
+              {draft.trim() ? (
+                <button className="icon-btn" title="Enviar" onClick={send} disabled={sending}
+                  style={{flexShrink:0,background:'var(--accent)',color:'var(--accent-ink,#fff)',
+                    width:38,height:38,borderRadius:'50%'}}>
+                  <IcoSend size={17}/>
+                </button>
+              ) : (
+                <button className="icon-btn" title="Grabar nota de voz" onClick={startRec}
+                  disabled={sending||canalActivo!=='whatsapp'}
+                  style={{flexShrink:0,color:'var(--ink-3)',width:38,height:38}}>
+                  <IcoMic size={20}/>
+                </button>
+              )}
+            </div>
+          )}
           <div className="muted" style={{fontSize:10.5,marginTop:6}}>
-            ⌘+Enter para enviar{isLiveMode&&sendCanalId?' · Canal: '+canalActivo:''}
+            Enter para enviar · Shift+Enter salto de línea{isLiveMode&&sendCanalId?' · '+canalActivo:''}
           </div>
         </div>
+        )}
       </div>
 
       {/* Panel lateral */}
-      <aside style={{borderLeft:'1px solid var(--line)',padding:20,overflowY:'auto',background:'var(--panel)'}}>
+      <aside className="lead-aside" style={{borderLeft:'1px solid var(--line)',padding:20,overflowY:'auto',background:'var(--panel)'}}>
         <SidePanelRow label="Asignado a" value={
           v ? <div className="row" style={{gap:8}}><Avatar vendedor={v} size={24}/><span style={{fontSize:13}}>{v.nombre}</span></div>
             : <span className="pill pill-accent">Sin asignar</span>
@@ -524,6 +697,129 @@ function SidePanelRow({ label, value, mono }) {
   );
 }
 
+// ── Pestaña Actividad ──────────────────────────────────────────────
+function ActividadTab({ lead, msgs }) {
+  const entrantes = msgs.filter(m => m.from === 'cliente').length;
+  const salientes = msgs.filter(m => m.from === 'vendedor').length;
+  const fechaFmt = (d) => d ? new Date(d).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+  const etiqueta = (et) => (ETAPAS.find(e => e.id === et) || {}).label || et;
+  const row = (k, val) => (
+    <div className="row" style={{ justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--line-2)' }}>
+      <span className="muted" style={{ fontSize: 12.5 }}>{k}</span>
+      <span style={{ fontSize: 12.5, fontWeight: 500, textAlign: 'right' }}>{val}</span>
+    </div>
+  );
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px', background: 'var(--bg)' }}>
+      <div className="card" style={{ padding: '4px 16px' }}>
+        {row('Etapa actual', etiqueta(lead.etapa))}
+        {row('Prioridad', lead.prioridad || 'media')}
+        {row('Canal', lead.canal_tipo || lead.canal || '—')}
+        {row('Mensajes recibidos', entrantes)}
+        {row('Mensajes enviados', salientes)}
+        {row('Creado', fechaFmt(lead.created_at))}
+        {row('Última interacción', fechaFmt(lead.ultima_interaccion))}
+      </div>
+      <div className="muted" style={{ fontSize: 11, marginTop: 12, textAlign: 'center' }}>
+        Resumen de actividad del lead
+      </div>
+    </div>
+  );
+}
+
+// ── Pestaña Cotizaciones (de este lead) ────────────────────────────
+function CotizacionesLeadTab({ lead, isLiveMode }) {
+  const [cots, setCots] = React.useState(null);
+  const [err, setErr] = React.useState(null);
+  React.useEffect(() => {
+    if (!isLiveMode) { setCots([]); return; }
+    ApiClient.getCotizaciones({ lead_id: lead.id, limit: '50' })
+      .then(r => setCots(r.data || []))
+      .catch(e => setErr(e.message));
+  }, [lead.id, isLiveMode]);
+
+  const badge = (e) => e==='aceptada'?'pill-ok':e==='rechazada'?'pill-bad':e==='vista'?'pill-info':e==='enviada'?'pill-accent':'';
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px', background: 'var(--bg)' }}>
+      {err && <div className="card" style={{ padding: 16, color: 'var(--accent)' }}>Error: {err}</div>}
+      {!cots && !err && <div className="muted" style={{ fontSize: 13 }}>Cargando…</div>}
+      {cots && cots.length === 0 && <div className="muted" style={{ fontSize: 13 }}>Este lead no tiene cotizaciones.</div>}
+      {cots && cots.length > 0 && (
+        <div className="card">
+          <table className="tbl">
+            <thead><tr><th>Folio</th><th>Estado</th><th>Vigencia</th><th style={{textAlign:'right'}}>Monto</th></tr></thead>
+            <tbody>
+              {cots.map(c => (
+                <tr key={c.id}>
+                  <td className="mono" style={{ fontSize: 12 }}>{c.folio}</td>
+                  <td><span className={'pill ' + badge(c.estado)}>{c.estado}</span></td>
+                  <td className="mono muted" style={{ fontSize: 11.5 }}>{c.vigencia_dias} días</td>
+                  <td className="tabular mono" style={{ textAlign: 'right', fontWeight: 500 }}>{money(Number(c.monto_total) || 0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Pestaña Notas (solo lectura) ───────────────────────────────────
+function NotasTab({ lead }) {
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px', background: 'var(--bg)' }}>
+      <div className="kpi-label" style={{ marginBottom: 8 }}>Notas del lead</div>
+      <div className="card" style={{ padding: 16, fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', minHeight: 80 }}>
+        {lead.notas ? lead.notas : <span className="muted">Sin notas.</span>}
+      </div>
+    </div>
+  );
+}
+
+// Reproductor de audio compacto estilo WhatsApp
+function AudioMsg({ src, dark }) {
+  const ref = React.useRef(null);
+  const [playing, setPlaying] = React.useState(false);
+  const [cur, setCur] = React.useState(0);
+  const [dur, setDur] = React.useState(0);
+  const fmt = (s) => {
+    if (!isFinite(s) || s < 0) return '0:00';
+    const m = Math.floor(s / 60), ss = Math.floor(s % 60);
+    return m + ':' + String(ss).padStart(2, '0');
+  };
+  const toggle = () => {
+    const a = ref.current; if (!a) return;
+    if (a.paused) { a.play(); setPlaying(true); } else { a.pause(); setPlaying(false); }
+  };
+  const fg = dark ? '#fff' : 'var(--ink)';
+  const track = dark ? 'rgba(255,255,255,0.25)' : 'var(--line-2)';
+  const pct = dur ? (cur / dur) * 100 : 0;
+  return (
+    <div className="row" style={{ gap: 10, minWidth: 230, alignItems: 'center', padding: '2px 2px' }}>
+      <button onClick={toggle} aria-label={playing ? 'Pausar' : 'Reproducir'}
+        style={{ flexShrink: 0, width: 34, height: 34, borderRadius: '50%', border: 0, cursor: 'pointer',
+          background: 'var(--accent)', color: 'var(--accent-ink, #fff)', display: 'grid', placeItems: 'center', fontSize: 13 }}>
+        {playing ? '❚❚' : '▶'}
+      </button>
+      <div style={{ flex: 1 }}>
+        <input type="range" min={0} max={dur || 0} step="0.01" value={cur}
+          onChange={(e) => { if (ref.current) ref.current.currentTime = +e.target.value; setCur(+e.target.value); }}
+          style={{ width: '100%', accentColor: 'var(--accent)', background: track, height: 4, cursor: 'pointer' }}/>
+        <div className="mono" style={{ fontSize: 10.5, color: fg, opacity: 0.8, marginTop: 2 }}>
+          {fmt(cur)} / {fmt(dur)}
+        </div>
+      </div>
+      <audio ref={ref} src={src} preload="metadata"
+        onLoadedMetadata={(e) => setDur(e.target.duration)}
+        onDurationChange={(e) => setDur(e.target.duration)}
+        onTimeUpdate={(e) => setCur(e.target.currentTime)}
+        onEnded={() => { setPlaying(false); setCur(0); }}
+        style={{ display: 'none' }}/>
+    </div>
+  );
+}
+
 function Msg({ m, vendedor }) {
   if (m.from === 'sistema') {
     return (
@@ -534,26 +830,51 @@ function Msg({ m, vendedor }) {
   }
   const isV = m.from === 'vendedor';
   return (
-    <div style={{display:'flex',gap:10,marginBottom:14,flexDirection:isV?'row-reverse':'row'}}>
+    <div className="msg-row" style={{display:'flex',gap:10,marginBottom:14,flexDirection:isV?'row-reverse':'row'}}>
+      <span className="msg-avatar">
       {isV
         ? <Avatar vendedor={vendedor} size={28}/>
         : <div className="avatar" style={{background:'var(--line)',color:'var(--ink-3)',width:28,height:28,fontSize:11,display:'grid',placeItems:'center'}}>C</div>}
-      <div style={{maxWidth:'70%'}}>
-        <div className="row" style={{gap:6,marginBottom:4,flexDirection:isV?'row-reverse':'row'}}>
-          <span style={{fontSize:11.5,fontWeight:500}}>{isV?(vendedor?.nombre||'Vendedor'):'Cliente'}</span>
-          {m.canal && <ChipCanal canal={m.canal} size={10}/>}
+      </span>
+      <div className="msg-col" style={{maxWidth:'70%'}}>
+        <div className="row msg-meta" style={{gap:6,marginBottom:4,flexDirection:isV?'row-reverse':'row'}}>
+          <span className="msg-name" style={{fontSize:11.5,fontWeight:500}}>{isV?(vendedor?.nombre||'Vendedor'):'Cliente'}</span>
+          {m.canal && <span className="msg-canal"><ChipCanal canal={m.canal} size={10}/></span>}
           <span className="muted mono" style={{fontSize:10.5}}>{m.ts}</span>
           {isV && m.estado === 'error' && <span title={m.errorDetalle} style={{color:'#ef4444',fontSize:11}}>⚠ no enviado</span>}
           {isV && m.estado === 'enviado' && <span title="Enviado" style={{color:'#22c55e',fontSize:11}}>✓✓</span>}
         </div>
-        <div style={{
+        <div className={(m.tieneMedia && m.tipoMedia === 'sticker') ? '' : ('chat-bubble '+(isV?'chat-out':'chat-in'))} style={ m.tieneMedia && m.tipoMedia === 'sticker' ? {
+          background:'transparent',border:0,padding:0,
+        } : {
           background:isV?(m.estado==='error'?'#7f1d1d':'var(--ink)'):'var(--panel)',
           color:isV?'#fff':'var(--ink)',
           border:isV?'0':'1px solid var(--line)',
-          padding:'10px 12px',borderRadius:10,fontSize:13,lineHeight:1.45,
+          padding:(m.tieneMedia&&m.tipoMedia==='image')?6:'10px 12px',borderRadius:10,fontSize:13,lineHeight:1.45,
           wordBreak:'break-word',
           opacity:isV&&m.estado==='error'?0.85:1,
-        }}>{m.texto}</div>
+        }}>
+          {m.tieneMedia && m.tipoMedia === 'sticker' ? (
+            <img src={ApiClient.mediaSrc(m.id)} alt="sticker"
+                 style={{width:130,height:130,objectFit:'contain',display:'block'}}
+                 onError={(e)=>{e.target.replaceWith(Object.assign(document.createElement('span'),{textContent:'[sticker]'}));}}/>
+          ) : m.tieneMedia && m.tipoMedia === 'image' ? (
+            <a href={ApiClient.mediaSrc(m.id)} target="_blank" rel="noreferrer">
+              <img src={ApiClient.mediaSrc(m.id)} alt={m.texto||'imagen'}
+                   style={{maxWidth:240,maxHeight:280,borderRadius:6,display:'block'}}
+                   onError={(e)=>{e.target.replaceWith(Object.assign(document.createElement('span'),{textContent:'[imagen no disponible]'}));}}/>
+            </a>
+          ) : m.tieneMedia && m.tipoMedia === 'audio' ? (
+            <AudioMsg src={ApiClient.mediaSrc(m.id)} dark={isV}/>
+          ) : m.tieneMedia && m.tipoMedia === 'video' ? (
+            <video controls src={ApiClient.mediaSrc(m.id)} style={{maxWidth:260,maxHeight:300,borderRadius:6,display:'block'}}/>
+          ) : m.tieneMedia && m.tipoMedia === 'document' ? (
+            <a href={ApiClient.mediaSrc(m.id)} target="_blank" rel="noreferrer" download
+               style={{color:isV?'#fff':'var(--accent)',textDecoration:'underline'}}>
+              📄 {m.texto||'documento'}
+            </a>
+          ) : m.texto}
+        </div>
       </div>
     </div>
   );

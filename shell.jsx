@@ -37,12 +37,17 @@ const IcoSend       = (p) => <Ico {...p} d="m22 2-7 20-4-9-9-4z M22 2 11 13"/>;
 const IcoMore       = (p) => <Ico {...p} d="M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2 M19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2 M5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2"/>;
 const IcoBuilding   = (p) => <Ico {...p} d="M3 21h18 M5 21V7l7-4 7 4v14 M9 9h1 M14 9h1 M9 13h1 M14 13h1 M9 17h1 M14 17h1"/>;
 const IcoTruck      = (p) => <Ico {...p} d="M1 3h15v13H1z M16 8h4l3 3v5h-7 M5.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5 M18.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/>;
+const IcoPaperclip  = (p) => <Ico {...p} d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>;
+const IcoMic        = (p) => <Ico {...p} d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z M19 10v2a7 7 0 0 1-14 0v-2 M12 19v3 M8 22h8"/>;
+const IcoTrash      = (p) => <Ico {...p} d="M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6"/>;
+const IcoSticker    = (p) => <Ico {...p} d="M15.5 21H8a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v5.5 M20 12.5 12.5 20v-3.5a4 4 0 0 1 4-4z M8.5 9.5h.01 M14.5 9.5h.01 M9 14s1 1.5 3 1.5"/>;
 
 Object.assign(window, {
   Ico, IcoInbox, IcoUsers, IcoKanban, IcoBarChart, IcoDoc, IcoRefresh, IcoMap,
   IcoDashboard, IcoSearch, IcoBell, IcoBolt, IcoLogout, IcoWhatsapp, IcoMail,
   IcoChevronR, IcoChevronD, IcoPlus, IcoFilter, IcoCheck, IcoX, IcoClock,
   IcoTarget, IcoTrend, IcoUser, IcoPhone, IcoSend, IcoMore, IcoBuilding, IcoTruck,
+  IcoPaperclip, IcoMic, IcoTrash, IcoSticker,
 });
 
 // ─── Utilidades ───────────────────────────────────────────────────────────

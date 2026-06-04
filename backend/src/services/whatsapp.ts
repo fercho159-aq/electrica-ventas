@@ -94,6 +94,69 @@ export class WhatsAppService {
     return msgId;
   }
 
+  /**
+   * Sube un archivo a Meta (POST /{phone_number_id}/media) y devuelve el media_id.
+   */
+  async uploadMedia(
+    accessToken: string,
+    phoneNumberId: string,
+    buffer: Buffer,
+    mimeType: string,
+    filename: string
+  ): Promise<string> {
+    const form = new FormData();
+    form.append('messaging_product', 'whatsapp');
+    form.append('type', mimeType);
+    form.append('file', new Blob([buffer], { type: mimeType }), filename);
+
+    const res = await fetch(`${this.graphBaseUrl}/${phoneNumberId}/media`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: form,
+    });
+    const data = (await res.json()) as { id?: string; error?: { message: string } };
+    if (!res.ok || !data.id) {
+      throw new Error(`Meta upload error ${res.status}: ${data.error?.message ?? 'sin id'}`);
+    }
+    return data.id;
+  }
+
+  /**
+   * Envía un mensaje de media ya subido (image/audio/video/document/sticker) por media_id.
+   */
+  async sendMediaById(
+    accessToken: string,
+    phoneNumberId: string,
+    to: string,
+    mediaType: 'image' | 'audio' | 'video' | 'document' | 'sticker',
+    mediaId: string,
+    caption?: string,
+    filename?: string
+  ): Promise<string> {
+    const cleanTo = this.normalizeRecipient(to);
+    const obj: Record<string, string> = { id: mediaId };
+    if (caption && (mediaType === 'image' || mediaType === 'video' || mediaType === 'document')) {
+      obj.caption = caption;
+    }
+    if (mediaType === 'document') {
+      obj.filename = filename || caption || 'documento';
+    }
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: cleanTo,
+      type: mediaType,
+      [mediaType]: obj,
+    } as unknown as Parameters<typeof this.post>[2];
+
+    const response = await this.post(accessToken, phoneNumberId, payload);
+    const msgId = response.messages?.[0]?.id;
+    if (!msgId) {
+      throw new Error('Meta API did not return a message ID for media');
+    }
+    return msgId;
+  }
+
   async sendTemplate(
     accessToken: string,
     phoneNumberId: string,
