@@ -124,11 +124,7 @@ function Sidebar({ route, setRoute, rol, rolActivoVendedor, setRol, onLogout }) 
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <div className="brand-mark"><IcoBolt size={18} stroke={2}/></div>
-        <div>
-          <div className="brand-name">Electrica<span>Ventas</span></div>
-          <div className="brand-sub">CRM de ventas</div>
-        </div>
+        <img src="/assets/logo.png" className="brand-logo" alt="San Miguel" />
       </div>
 
       <nav className="sidebar-nav">

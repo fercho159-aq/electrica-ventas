@@ -37,11 +37,7 @@ function Login({ onEnter }) {
     <div className="login-wrap">
       <div className="login-side">
         <div className="login-brand">
-          <div className="brand-mark"><IcoBolt size={22} stroke={2}/></div>
-          <div>
-            <div className="brand-name">Electrica<span>Ventas</span></div>
-            <div className="brand-sub">CRM de ventas</div>
-          </div>
+          <img src="/assets/logo.png" className="brand-logo brand-logo-lg" alt="San Miguel" />
         </div>
         <div className="login-quote">
           Todos tus <b>leads de WhatsApp</b> y <b>correo</b>, en una sola bandeja.
@@ -55,6 +51,8 @@ function Login({ onEnter }) {
       </div>
 
       <div className="login-form">
+        {/* Logo (visible sobre todo en móvil, donde se oculta el panel lateral) */}
+        <img src="/assets/logo.png" className="brand-logo login-form-logo" alt="San Miguel" />
         {/* Tabs */}
         <div className="row" style={{gap:0,borderBottom:'1px solid var(--line)',marginBottom:20}}>
           {[['real','Iniciar sesión'],['demo','Modo demo']].map(([id,label])=>(
