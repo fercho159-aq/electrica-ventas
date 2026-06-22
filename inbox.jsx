@@ -498,7 +498,7 @@ function LeadDetail({ lead, rol, isLiveMode, onLeadUpdated, isMobile, onBack }) 
 
         {/* Tabs */}
         <div className="row" style={{padding:'8px 20px',borderBottom:'1px solid var(--line-2)',gap:16}}>
-          {['conversacion','actividad','cotizaciones','notas'].map(t=>(
+          {['conversacion','actividad'].map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{appearance:'none',border:0,background:'transparent',padding:'6px 0',cursor:'pointer',
                 fontSize:12.5,fontWeight:500,
@@ -517,8 +517,6 @@ function LeadDetail({ lead, rol, isLiveMode, onLeadUpdated, isMobile, onBack }) 
           </div>
         )}
         {tab === 'actividad'   && <ActividadTab lead={lead} msgs={msgs}/>}
-        {tab === 'cotizaciones'&& <CotizacionesLeadTab lead={lead} isLiveMode={isLiveMode}/>}
-        {tab === 'notas'       && <NotasTab lead={lead} isLiveMode={isLiveMode} onSaved={onLeadUpdated}/>}
 
         {/* Compose (solo en conversación) */}
         {tab === 'conversacion' && (
@@ -654,6 +652,13 @@ function LeadDetail({ lead, rol, isLiveMode, onLeadUpdated, isMobile, onBack }) 
           {lead.etapa === 'cerrado' && <div className="row" style={{gap:8,color:'var(--ok)'}}><IcoCheck size={12}/><span>Venta cerrada</span></div>}
           {lead.etapa === 'no_cierre' && <div className="row" style={{gap:8,color:'var(--bad)'}}><IcoX size={12}/><span>No cierre · {lead.motivoNoCierre}</span></div>}
         </div>
+
+        <SideSection title="Cotizaciones">
+          <CotizacionesLeadTab lead={lead} isLiveMode={isLiveMode} embedded/>
+        </SideSection>
+        <SideSection title="Notas">
+          <NotasTab lead={lead} isLiveMode={isLiveMode} onSaved={onLeadUpdated} embedded/>
+        </SideSection>
       </aside>
 
       {/* Modales */}
@@ -931,6 +936,25 @@ function SidePanelRow({ label, value, mono }) {
   );
 }
 
+// ── Sección colapsable (dropdown) del panel lateral ────────────────
+function SideSection({ title, badge, defaultOpen=false, children }) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  return (
+    <div style={{borderTop:'1px solid var(--line-2)',marginTop:16,paddingTop:14}}>
+      <button onClick={()=>setOpen(o=>!o)} aria-expanded={open}
+        style={{appearance:'none',border:0,background:'transparent',cursor:'pointer',width:'100%',
+          display:'flex',alignItems:'center',justifyContent:'space-between',padding:0}}>
+        <span className="kpi-label" style={{display:'flex',alignItems:'center',gap:6}}>
+          {title}{badge!=null && <span className="pill" style={{fontSize:10}}>{badge}</span>}
+        </span>
+        <span style={{display:'inline-flex',color:'var(--ink-4)',transition:'transform .15s',
+          transform:open?'rotate(90deg)':'none'}}><IcoChevronR size={13}/></span>
+      </button>
+      {open && <div style={{marginTop:12}}>{children}</div>}
+    </div>
+  );
+}
+
 // ── Pestaña Actividad ──────────────────────────────────────────────
 function ActividadTab({ lead, msgs }) {
   const entrantes = msgs.filter(m => m.from === 'cliente').length;
@@ -962,7 +986,7 @@ function ActividadTab({ lead, msgs }) {
 }
 
 // ── Pestaña Cotizaciones (de este lead) ────────────────────────────
-function CotizacionesLeadTab({ lead, isLiveMode }) {
+function CotizacionesLeadTab({ lead, isLiveMode, embedded }) {
   const [cots, setCots] = React.useState(null);
   const [err, setErr] = React.useState(null);
   React.useEffect(() => {
@@ -980,11 +1004,28 @@ function CotizacionesLeadTab({ lead, isLiveMode }) {
   };
   const badge = (e) => e==='aceptada'?'pill-ok':e==='rechazada'?'pill-bad':e==='vista'?'pill-info':e==='enviada'?'pill-accent':'';
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px', background: 'var(--bg)' }}>
+    <div style={embedded ? {} : { flex: 1, overflowY: 'auto', padding: '20px 28px', background: 'var(--bg)' }}>
       {err && <div className="card" style={{ padding: 16, color: 'var(--accent)' }}>Error: {err}</div>}
       {!cots && !err && <div className="muted" style={{ fontSize: 13 }}>Cargando…</div>}
-      {cots && cots.length === 0 && <div className="muted" style={{ fontSize: 13 }}>Este lead no tiene cotizaciones.</div>}
-      {cots && cots.length > 0 && (
+      {cots && cots.length === 0 && <div className="muted" style={{ fontSize: 12.5 }}>Sin cotizaciones.</div>}
+      {cots && cots.length > 0 && embedded && (
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {cots.map(c => (
+            <div key={c.id} style={{border:'1px solid var(--line-2)',borderRadius:8,padding:'8px 10px'}}>
+              <div className="row" style={{justifyContent:'space-between',gap:8}}>
+                <span className="mono" style={{fontSize:12}}>{c.folio}</span>
+                <span className={'pill '+badge(c.estado)} style={{fontSize:10}}>{c.estado}</span>
+              </div>
+              <div className="row" style={{justifyContent:'space-between',gap:8,marginTop:6}}>
+                <span className="tabular mono" style={{fontSize:12.5,fontWeight:500}}>{money(Number(c.monto_total)||0)}</span>
+                <button className="btn btn-sm btn-ghost" onClick={()=>abrirPdf(c.id)} title="Abrir PDF"><IcoDoc size={12}/>PDF</button>
+              </div>
+              {c.monto_cerrado != null && <div style={{fontSize:10.5,marginTop:4,color:'var(--ok)'}}>Cerrado {money(Number(c.monto_cerrado))} ({c.cierre_tipo})</div>}
+            </div>
+          ))}
+        </div>
+      )}
+      {cots && cots.length > 0 && !embedded && (
         <div className="card">
           <table className="tbl">
             <thead><tr><th>Folio</th><th>Estado</th><th>Vigencia</th><th style={{textAlign:'right'}}>Monto</th><th style={{textAlign:'right'}}>Cerrado</th><th></th></tr></thead>
@@ -1012,7 +1053,7 @@ function CotizacionesLeadTab({ lead, isLiveMode }) {
 }
 
 // ── Pestaña Notas (editable + autoguardado, item 2) ────────────────
-function NotasTab({ lead, isLiveMode, onSaved }) {
+function NotasTab({ lead, isLiveMode, onSaved, embedded }) {
   const toast = useToast();
   const [val, setVal] = React.useState(lead.notas || '');
   const [estado, setEstado] = React.useState('idle'); // idle | guardando | guardado | error
@@ -1049,15 +1090,15 @@ function NotasTab({ lead, isLiveMode, onSaved }) {
 
   const label = { idle:'', guardando:'Guardando…', guardado:'Guardado ✓', error:'Error al guardar' }[estado];
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px', background: 'var(--bg)' }}>
-      <div className="row" style={{ justifyContent:'space-between', marginBottom: 8 }}>
-        <div className="kpi-label">Notas del lead</div>
+    <div style={embedded ? {} : { flex: 1, overflowY: 'auto', padding: '20px 28px', background: 'var(--bg)' }}>
+      <div className="row" style={{ justifyContent: embedded?'flex-end':'space-between', marginBottom: 8, minHeight: 14 }}>
+        {!embedded && <div className="kpi-label">Notas del lead</div>}
         <span className="muted" style={{ fontSize: 11, color: estado==='error'?'var(--bad)':estado==='guardado'?'var(--ok)':'var(--ink-3)' }}>{label}</span>
       </div>
-      <textarea className="input" rows={10} value={val} onChange={onChange}
+      <textarea className="input" rows={embedded?6:10} value={val} onChange={onChange}
         onBlur={() => { clearTimeout(timerRef.current); if (dirtyRef.current) guardar(val); }}
         placeholder="Escribe notas del cliente… (se guardan solas)"
-        style={{ width:'100%', fontSize: 13, lineHeight: 1.5, resize:'vertical', minHeight: 160 }}/>
+        style={{ width:'100%', fontSize: 13, lineHeight: 1.5, resize:'vertical', minHeight: embedded?110:160 }}/>
     </div>
   );
 }
