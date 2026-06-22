@@ -10,7 +10,8 @@
 # =============================================================================
 set -euo pipefail
 
-PROJECT_DIR="/var/www/electrica-ventas"
+# Raíz del proyecto derivada de la ubicación del script (funciona en /opt o /var/www).
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_DIR="$PROJECT_DIR/backend"
 DB_NAME="electrica_ventas"
 

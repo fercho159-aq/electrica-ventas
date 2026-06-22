@@ -5,12 +5,17 @@
 // Uso: pm2 start devops/pm2.config.js --env production
 // =============================================================================
 
+const path = require('path');
+// Ruta del backend derivada de la ubicación de este archivo: funciona igual en
+// /opt/electrica-ventas, /var/www/electrica-ventas o cualquier checkout.
+const BACKEND = path.join(__dirname, '..', 'backend');
+
 module.exports = {
   apps: [
     // ── API principal (Fastify + WebSocket) ─────────────────────────────────
     {
       name: 'electrica-api',
-      cwd: '/var/www/electrica-ventas/backend',
+      cwd: BACKEND,
       script: 'dist/app.js',
       instances: 1,                // fork: WebSocket no se reparte bien en cluster sin sticky sessions
       exec_mode: 'fork',
@@ -32,7 +37,7 @@ module.exports = {
     // ── Worker: mensajes salientes (WhatsApp / SMTP) ────────────────────────
     {
       name: 'electrica-worker-mensajes',
-      cwd: '/var/www/electrica-ventas/backend',
+      cwd: BACKEND,
       script: 'dist/workers/mensaje-saliente.js',
       instances: 1,
       exec_mode: 'fork',
@@ -51,7 +56,7 @@ module.exports = {
     // ── Worker: campañas masivas ────────────────────────────────────────────
     {
       name: 'electrica-worker-campanas',
-      cwd: '/var/www/electrica-ventas/backend',
+      cwd: BACKEND,
       script: 'dist/workers/campana.js',
       instances: 1,
       exec_mode: 'fork',
@@ -71,7 +76,7 @@ module.exports = {
     // Cron por intervalo: avisa al vendedor de cotizaciones sin respuesta.
     {
       name: 'electrica-worker-recordatorios',
-      cwd: '/var/www/electrica-ventas/backend',
+      cwd: BACKEND,
       script: 'dist/workers/recordatorios.js',
       instances: 1,
       exec_mode: 'fork',
@@ -95,7 +100,7 @@ module.exports = {
     // Comentado por defecto: actívalo solo cuando configures IMAP_* en .env
     // {
     //   name: 'electrica-imap-sync',
-    //   cwd: '/var/www/electrica-ventas/backend',
+    //   cwd: BACKEND,
     //   script: 'dist/workers/imap-sync.js',
     //   instances: 1,
     //   exec_mode: 'fork',
