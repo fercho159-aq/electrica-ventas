@@ -67,6 +67,30 @@ module.exports = {
       env_production: { NODE_ENV: 'production' },
     },
 
+    // ── Worker: recordatorios de seguimiento (TODO item 14) ─────────────────
+    // Cron por intervalo: avisa al vendedor de cotizaciones sin respuesta.
+    {
+      name: 'electrica-worker-recordatorios',
+      cwd: '/var/www/electrica-ventas/backend',
+      script: 'dist/workers/recordatorios.js',
+      instances: 1,
+      exec_mode: 'fork',
+      watch: false,
+      max_memory_restart: '200M',
+      restart_delay: 5000,
+      max_restarts: 10,
+      min_uptime: '10s',
+      log_file: '/var/log/electrica/pm2-worker-recordatorios.log',
+      error_file: '/var/log/electrica/pm2-worker-recordatorios-error.log',
+      merge_logs: true,
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      env_production: {
+        NODE_ENV: 'production',
+        RECORDATORIO_DIAS: 3,
+        RECORDATORIO_INTERVALO_MIN: 60,
+      },
+    },
+
     // ── Worker: sincronización IMAP (correo entrante) ───────────────────────
     // Comentado por defecto: actívalo solo cuando configures IMAP_* en .env
     // {

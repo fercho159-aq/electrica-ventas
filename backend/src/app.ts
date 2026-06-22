@@ -27,6 +27,7 @@ import canalesPlugin from './routes/canales';
 import asignacionPlugin from './routes/asignacion';
 import mediaPlugin from './routes/media';
 import webhookWaPlugin from './routes/webhook-wa';
+import remarketingPlugin from './routes/remarketing';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -196,6 +197,7 @@ async function buildApp(): Promise<FastifyInstance> {
   await fastify.register(canalesPlugin, { prefix: '/api/canales' });
   await fastify.register(asignacionPlugin, { prefix: '/api/asignacion' });
   await fastify.register(mediaPlugin, { prefix: '/api/media' });
+  await fastify.register(remarketingPlugin, { prefix: '/api/remarketing' });
 
   // ─── WEBHOOK (PUBLIC, NO JWT) ────────────────────────────────────
   await fastify.register(webhookWaPlugin, { prefix: '/webhook/wa' });

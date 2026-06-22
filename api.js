@@ -59,8 +59,17 @@ window.ApiClient = {
     return this._fetch(`/api/leads?${p}`);
   },
   getLead(id)         { return this._fetch(`/api/leads/${id}`); },
-  updateEtapa(id, e)  { return this._fetch(`/api/leads/${id}/etapa`, { method: 'PATCH', body: JSON.stringify({ etapa: e }) }); },
+  updateEtapa(id, e, motivo) {
+    const body = { etapa: e };
+    if (motivo) body.motivo_no_cierre = motivo;
+    return this._fetch(`/api/leads/${id}/etapa`, { method: 'PATCH', body: JSON.stringify(body) });
+  },
   asignarLead(id, vId){ return this._fetch(`/api/leads/${id}/asignar`, { method: 'PATCH', body: JSON.stringify({ vendedor_id: vId }) }); },
+  // PATCH genérico de lead (notas, clasificación, datos)
+  updateLead(id, patch) { return this._fetch(`/api/leads/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }); },
+  clasificarLead(id, clasificacion) { return this.updateLead(id, { clasificacion }); },
+  // Cerró en mostrador (item 9)
+  cerrarMostrador(id, ticket) { return this._fetch(`/api/leads/${id}/mostrador`, { method: 'PATCH', body: JSON.stringify(ticket ? { ticket } : {}) }); },
 
   // Mensajes
   // URL para <img>/<a> de media de WhatsApp (token por query porque <img> no manda headers)
@@ -102,8 +111,14 @@ window.ApiClient = {
   getCanales() { return this._fetch('/api/canales'); },
 
   // Dashboard
-  getDashboard() { return this._fetch('/api/dashboard/resumen'); },
-  getEmbudo()    { return this._fetch('/api/dashboard/embudo'); },
+  getDashboard(excluirInformativos = false) {
+    const q = excluirInformativos ? '?excluir_informativos=true' : '';
+    return this._fetch(`/api/dashboard/resumen${q}`);
+  },
+  getEmbudo(excluirInformativos = false) {
+    const q = excluirInformativos ? '?excluir_informativos=true' : '';
+    return this._fetch(`/api/dashboard/embudo${q}`);
+  },
   getActividadCanales() { return this._fetch('/api/canales/actividad'); },
 
   // Cotizaciones
@@ -111,12 +126,44 @@ window.ApiClient = {
     const p = new URLSearchParams(f);
     return this._fetch(`/api/cotizaciones?${p}`);
   },
+  getCotizacion(id) { return this._fetch(`/api/cotizaciones/${id}`); },
+  crearCotizacion(payload) { return this._fetch('/api/cotizaciones', { method: 'POST', body: JSON.stringify(payload) }); },
+  updateCotizacionEstado(id, estado) { return this._fetch(`/api/cotizaciones/${id}/estado`, { method: 'PATCH', body: JSON.stringify({ estado }) }); },
+  // Cierre parcial/total con monto (item 8)
+  cerrarCotizacion(id, payload) { return this._fetch(`/api/cotizaciones/${id}/cierre`, { method: 'PATCH', body: JSON.stringify(payload) }); },
+  enviarCotizacion(id, canal, canalId) {
+    const body = { canal };
+    if (canalId) body.canal_id = canalId;
+    return this._fetch(`/api/cotizaciones/${id}/enviar`, { method: 'POST', body: JSON.stringify(body) });
+  },
+  // Abre el PDF (auth por header → blob URL, no por query)
+  async cotizacionPdfUrl(id) {
+    const r = await fetch(`${API_BASE}/api/cotizaciones/${id}/pdf`, { headers: { Authorization: `Bearer ${this.token}` } });
+    if (!r.ok) throw new Error('No se pudo generar el PDF');
+    return URL.createObjectURL(await r.blob());
+  },
 
   // KPIs
   getKpis(periodo = 'mes') { return this._fetch(`/api/kpis?periodo=${periodo}`); },
 
   // Auto-asignar
   autoAsignar() { return this._fetch('/api/asignacion/auto', { method: 'POST' }); },
+
+  // Remarketing (Fase 2: items 13-15,17)
+  getSegmentos()        { return this._fetch('/api/remarketing/segmentos'); },
+  getSegmento(key)      { return this._fetch(`/api/remarketing/segmentos/${key}`); },
+  getPlantillas()       { return this._fetch('/api/remarketing/plantillas'); },
+  recontactar(payload)  { return this._fetch('/api/remarketing/recontactar', { method: 'POST', body: JSON.stringify(payload) }); },
+  async exportSegmentoCsv(segmento) {
+    const r = await fetch(`${API_BASE}/api/remarketing/export?segmento=${segmento}`, { headers: { Authorization: `Bearer ${this.token}` } });
+    if (!r.ok) throw new Error('No se pudo exportar');
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `segmento-${segmento}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
 };
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
@@ -178,6 +225,7 @@ window.WsClient = {
       mensaje_saliente: 'new_message',
       etapa_changed:    'lead_updated',
       lead_assigned:    'lead_updated',
+      recordatorio_cotizacion: 'lead_updated',
     }[type];
   },
 

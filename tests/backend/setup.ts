@@ -34,7 +34,7 @@ export async function setupTestDb(): Promise<void> {
   pool = new Pool({ connectionString: TEST_DB })
 
   // Run migrations
-  const migrations = ['001_initial.sql', '002_indices.sql']
+  const migrations = ['001_initial.sql', '002_indices.sql', '004_mensaje_estado.sql', '005_nucleo_datos.sql']
   for (const file of migrations) {
     const sql = readFileSync(join(__dirname, '../../database/migrations', file), 'utf-8')
     await pool.query(sql)

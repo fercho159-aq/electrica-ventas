@@ -38,6 +38,7 @@ const leadsPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
             asignado_a: { type: 'string' },
             canal_id: { type: 'string' },
             prioridad: { type: 'string' },
+            clasificacion: { type: 'string' },
             buscar: { type: 'string' },
             page: { type: 'integer', minimum: 1, default: 1 },
             limit: { type: 'integer', minimum: 1, maximum: 500, default: 20 },
@@ -52,6 +53,7 @@ const leadsPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         asignado_a,
         canal_id,
         prioridad,
+        clasificacion,
         buscar,
         page = 1,
         limit = 20,
@@ -60,6 +62,7 @@ const leadsPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         asignado_a?: string;
         canal_id?: string;
         prioridad?: string;
+        clasificacion?: string;
         buscar?: string;
         page?: number;
         limit?: number;
@@ -94,6 +97,14 @@ const leadsPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         params.push(prioridad);
       }
 
+      // clasificacion: 'informativo' | 'prospecto' | 'sin' (sin clasificar)
+      if (clasificacion === 'sin') {
+        conditions.push(`l.clasificacion IS NULL`);
+      } else if (clasificacion) {
+        conditions.push(`l.clasificacion = $${paramIdx++}`);
+        params.push(clasificacion);
+      }
+
       if (buscar) {
         conditions.push(
           `(l.contacto ILIKE $${paramIdx} OR l.empresa ILIKE $${paramIdx} OR l.telefono ILIKE $${paramIdx} OR l.email ILIKE $${paramIdx})`
@@ -114,6 +125,7 @@ const leadsPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         `SELECT
            l.id, l.contacto, l.empresa, l.telefono, l.email,
            l.etapa, l.prioridad, l.zona, l.monto_estimado, l.notas, l.motivo_no_cierre,
+           l.clasificacion, l.cerrado_en_mostrador, l.ticket_mostrador,
            l.created_at, l.ultima_interaccion,
            c.id as canal_id, c.nombre as canal_nombre, c.tipo as canal_tipo,
            u.id as vendedor_id, u.nombre as vendedor_nombre, u.zona as vendedor_zona,
@@ -150,6 +162,7 @@ const leadsPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         `SELECT
            l.id, l.contacto, l.empresa, l.telefono, l.email,
            l.etapa, l.prioridad, l.zona, l.monto_estimado, l.motivo_no_cierre,
+           l.clasificacion, l.cerrado_en_mostrador, l.ticket_mostrador,
            l.notas, l.created_at, l.ultima_interaccion,
            c.id as canal_id, c.nombre as canal_nombre, c.tipo as canal_tipo,
            u.id as vendedor_id, u.nombre as vendedor_nombre, u.email as vendedor_email,
@@ -281,6 +294,7 @@ const leadsPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
             monto_estimado: { type: 'number', minimum: 0 },
             notas: { type: 'string', maxLength: 2000 },
             motivo_no_cierre: { type: 'string', maxLength: 500 },
+            clasificacion: { type: 'string', enum: ['informativo', 'prospecto'] },
           },
           additionalProperties: false,
         },
@@ -304,7 +318,7 @@ const leadsPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         return reply.code(403).send({ error: 'No tienes permiso para editar este lead' });
       }
 
-      const allowedFields = ['contacto', 'empresa', 'telefono', 'email', 'prioridad', 'zona', 'monto_estimado', 'notas', 'motivo_no_cierre'];
+      const allowedFields = ['contacto', 'empresa', 'telefono', 'email', 'prioridad', 'zona', 'monto_estimado', 'notas', 'motivo_no_cierre', 'clasificacion'];
       const updates: string[] = [];
       const values: unknown[] = [];
       let paramIdx = 1;
@@ -490,6 +504,75 @@ const leadsPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         vendedorId: vendedor_id,
         vendedorNombre: vendedor.nombre,
         asignadoPor: user.nombre,
+        timestamp: new Date().toISOString(),
+      });
+
+      const updated = await queryOne(
+        `SELECT l.*, c.nombre as canal_nombre, u.nombre as vendedor_nombre
+         FROM leads l
+         LEFT JOIN canales c ON l.canal_id = c.id
+         LEFT JOIN usuarios u ON l.asignado_a = u.id
+         WHERE l.id = $1`,
+        [id]
+      );
+
+      return reply.send({ data: updated });
+    }
+  );
+
+  // PATCH /leads/:id/mostrador — "Cerró en mostrador" (item 9)
+  // Cierre directo (no pasa por el embudo de cotización); ligable a ticket.
+  fastify.patch<{ Params: { id: string } }>(
+    '/:id/mostrador',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            ticket: { type: 'string', maxLength: 100 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = request.user as JwtUser;
+      const { id } = request.params;
+      const { ticket } = request.body as { ticket?: string };
+
+      const existing = await queryOne<{ etapa: Etapa; asignado_a: string | null }>(
+        'SELECT etapa, asignado_a FROM leads WHERE id = $1',
+        [id]
+      );
+
+      if (!existing) {
+        return reply.code(404).send({ error: 'Lead no encontrado' });
+      }
+
+      if (user.rol === 'vendedor' && existing.asignado_a !== user.id) {
+        return reply.code(403).send({ error: 'No tienes permiso para modificar este lead' });
+      }
+
+      await query(
+        `UPDATE leads
+         SET cerrado_en_mostrador = true, ticket_mostrador = $1,
+             etapa = 'cerrado', ultima_interaccion = NOW()
+         WHERE id = $2`,
+        [ticket ?? null, id]
+      );
+
+      await query(
+        `INSERT INTO mensajes (lead_id, direccion, origen, usuario_id, texto, ts)
+         VALUES ($1, 'saliente', 'sistema', $2, $3, NOW())`,
+        [id, user.id, `Cerró en mostrador${ticket ? ` · ticket ${ticket}` : ''} (registrado por ${user.nombre})`]
+      );
+
+      wsHub.broadcast(id, {
+        type: 'etapa_changed',
+        leadId: id,
+        etapaAnterior: existing.etapa,
+        etapaNueva: 'cerrado',
+        cambiadoPor: user.nombre,
         timestamp: new Date().toISOString(),
       });
 

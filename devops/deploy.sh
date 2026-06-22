@@ -13,7 +13,6 @@ set -euo pipefail
 PROJECT_DIR="/var/www/electrica-ventas"
 BACKEND_DIR="$PROJECT_DIR/backend"
 DB_NAME="electrica_ventas"
-PM2_APPS="electrica-api electrica-worker-mensajes electrica-worker-campanas"
 
 cyan()  { printf "\033[36m%s\033[0m\n" "$1"; }
 green() { printf "\033[32m%s\033[0m\n" "$1"; }
@@ -45,15 +44,11 @@ for f in database/migrations/0*.sql; do
 done
 
 # ── 4. Reload PM2 — SOLO procesos electrica-* ───────────────────────────────
-cyan "→ [4/5] pm2 reload (solo electrica-*)"
-if pm2 describe electrica-api >/dev/null 2>&1; then
-  # shellcheck disable=SC2086
-  pm2 reload $PM2_APPS --update-env
-else
-  cyan "   Primera vez: pm2 start"
-  pm2 start "$PROJECT_DIR/devops/pm2.config.js" --env production
-  pm2 save
-fi
+cyan "→ [4/5] pm2 startOrReload (solo electrica-*)"
+# startOrReload arranca apps nuevas (p.ej. electrica-worker-recordatorios) y
+# recarga las existentes; solo toca apps del ecosystem (todas electrica-*).
+pm2 startOrReload "$PROJECT_DIR/devops/pm2.config.js" --env production --update-env
+pm2 save
 
 # ── 5. Healthcheck ───────────────────────────────────────────────────────────
 cyan "→ [5/5] healthcheck"

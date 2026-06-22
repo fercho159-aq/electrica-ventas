@@ -165,7 +165,7 @@ sudo chown $USER:$USER /var/log/electrica
 cd /var/www/electrica-ventas
 pm2 start devops/pm2.config.js --env production
 
-pm2 list             # deben aparecer electrica-api, electrica-worker-mensajes, electrica-worker-campanas
+pm2 list             # deben aparecer electrica-api, electrica-worker-mensajes, electrica-worker-campanas, electrica-worker-recordatorios
 pm2 logs electrica-api --lines 30
 
 # Persistir entre reinicios del VPS (si no lo hiciste antes para otras apps)
@@ -288,7 +288,7 @@ pm2 logs electrica-api
 pm2 logs electrica-worker-mensajes
 
 # Reiniciar tras cambios
-pm2 restart electrica-api electrica-worker-mensajes electrica-worker-campanas
+pm2 restart electrica-api electrica-worker-mensajes electrica-worker-campanas electrica-worker-recordatorios
 
 # Ver colas de mensajes (admin)
 # https://electrica-ventas.duckdns.org/admin/queues  (user/pass de BULL_BOARD_*)
@@ -300,7 +300,7 @@ pm2 restart electrica-api electrica-worker-mensajes electrica-worker-campanas
 cd /var/www/electrica-ventas
 git pull                       # o scp de los archivos cambiados
 cd backend && npm ci && npm run build
-pm2 reload electrica-api electrica-worker-mensajes electrica-worker-campanas
+pm2 reload electrica-api electrica-worker-mensajes electrica-worker-campanas electrica-worker-recordatorios
 ```
 
 El frontend (estático) se actualiza solo al hacer `git pull` — nginx sirve los archivos directo.
@@ -312,7 +312,7 @@ El frontend (estático) se actualiza solo al hacer `git pull` — nginx sirve lo
 - [ ] `dig electrica-ventas.duckdns.org` → 31.220.109.7
 - [ ] `curl http://127.0.0.1:3010/health` → ok
 - [ ] `curl https://electrica-ventas.duckdns.org/health` → ok (SSL válido)
-- [ ] `pm2 list` muestra `electrica-api` + 2 workers `online`
+- [ ] `pm2 list` muestra `electrica-api` + 3 workers `online`
 - [ ] Login en el navegador funciona
 - [ ] Webhook verificado en Meta (candado verde)
 - [ ] Mensaje de prueba entra (aparece lead) y sale (✓✓ en la UI)

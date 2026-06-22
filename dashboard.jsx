@@ -49,11 +49,12 @@ function Dashboard({ setRoute }) {
   const [ranking, setRanking] = _useState(null);
   const [nuevos, setNuevos]   = _useState(null);
   const [err, setErr]         = _useState(null);
+  const [exclInfo, setExclInfo] = _useState(false); // item 12: excluir informativos
 
   const cargar = React.useCallback(() => {
     Promise.all([
-      ApiClient.getDashboard(),
-      ApiClient.getEmbudo(),
+      ApiClient.getDashboard(exclInfo),
+      ApiClient.getEmbudo(exclInfo),
       ApiClient.getKpis('mes'),
       ApiClient.getLeads({ etapa: 'nuevo', limit: '20' }),
     ]).then(([r, e, k, l]) => {
@@ -63,7 +64,7 @@ function Dashboard({ setRoute }) {
       setNuevos((l.data || []).filter(x => !x.asignado_a));
       setErr(null);
     }).catch(ex => setErr(ex.message));
-  }, []);
+  }, [exclInfo]);
 
   _useEffect(() => {
     cargar();
@@ -84,11 +85,19 @@ function Dashboard({ setRoute }) {
 
   return (
     <div className="page">
+      <div className="row" style={{justifyContent:'flex-end',marginBottom:10}}>
+        <button className={'btn btn-sm'+(exclInfo?' btn-primary':'')} onClick={()=>setExclInfo(v=>!v)}
+          title="Excluye los leads informativos de conteos y métricas">
+          {exclInfo ? '☑' : '☐'} Excluir informativos
+        </button>
+      </div>
       <div className="grid-4" style={{marginBottom:16}}>
         <KpiCard label="Leads nuevos sin asignar" value={resumen.leads_nuevos_sin_asignar}/>
         <KpiCard label="Tasa de conversión" value={(resumen.tasa_conversion_pct ?? 0)+'%'}/>
         <KpiCard label="Resp. promedio" value={resumen.respuesta_promedio_min != null ? resumen.respuesta_promedio_min+' min' : '—'}/>
-        <KpiCard label="Ingresos MTD" value={money(resumen.ingresos_mtd || 0)}/>
+        <KpiCard label="Ingresos MTD" value={money(resumen.ingresos_mtd || 0)}
+          delta={resumen.ingresos_mtd_delta_pct != null ? Math.abs(resumen.ingresos_mtd_delta_pct)+'% vs mes anterior' : null}
+          deltaDir={(resumen.ingresos_mtd_delta_pct ?? 0) >= 0 ? 'up' : 'down'}/>
       </div>
 
       <div className="grid-2" style={{marginBottom:16}}>

@@ -44,6 +44,16 @@ export class AsignacionService {
       return null;
     }
 
+    // Item 5: los leads marcados 'informativo' no se asignan (se atienden y cierran
+    // desde la bandeja general). Sin clasificar o 'prospecto' sí se asignan.
+    const lead = await queryOne<{ clasificacion: string | null }>(
+      'SELECT clasificacion FROM leads WHERE id = $1',
+      [leadId]
+    );
+    if (lead?.clasificacion === 'informativo') {
+      return null;
+    }
+
     let vendedorId: string | null = null;
 
     if (regla.modo === 'round_robin') {
@@ -131,6 +141,7 @@ export class AsignacionService {
         SELECT id, canal_id FROM leads
         WHERE asignado_a IS NULL
           AND etapa = 'nuevo'
+          AND clasificacion IS DISTINCT FROM 'informativo'
           AND canal_id = $1
         ORDER BY created_at ASC
         LIMIT 50
@@ -141,6 +152,7 @@ export class AsignacionService {
         SELECT id, canal_id FROM leads
         WHERE asignado_a IS NULL
           AND etapa = 'nuevo'
+          AND clasificacion IS DISTINCT FROM 'informativo'
           AND canal_id IS NOT NULL
         ORDER BY created_at ASC
         LIMIT 50

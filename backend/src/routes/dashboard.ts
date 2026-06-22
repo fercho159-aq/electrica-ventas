@@ -19,12 +19,18 @@ const dashboardPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => 
   });
 
   // GET /dashboard/resumen
-  fastify.get('/resumen', async (_request, reply) => {
+  fastify.get('/resumen', async (request, reply) => {
+    const { excluir_informativos } = request.query as { excluir_informativos?: string | boolean };
+    const exclInfo = excluir_informativos === true || excluir_informativos === 'true';
+    // Filtro reutilizable (item 12): saca los leads informativos del conteo.
+    const sinInfo = exclInfo ? `AND clasificacion IS DISTINCT FROM 'informativo'` : '';
+
     const [
       leadsStats,
       conversionStats,
       respuestaStats,
       ingresosMtd,
+      ingresosPrev,
       actividadCanales,
       vendedoresActivos,
     ] = await Promise.all([
@@ -32,16 +38,16 @@ const dashboardPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => 
       queryOne<{ leads_nuevos_sin_asignar: string }>(
         `SELECT COUNT(*) as leads_nuevos_sin_asignar
          FROM leads
-         WHERE etapa = 'nuevo' AND asignado_a IS NULL`
+         WHERE etapa = 'nuevo' AND asignado_a IS NULL ${sinInfo}`
       ),
 
-      // Tasa de conversión (cotizaciones aceptadas / total cotizaciones)
-      queryOne<{ total: string; aceptadas: string }>(
+      // Tasa de conversión (item 11): leads con venta cerrada / leads totales del mes.
+      queryOne<{ total: string; cerrados: string }>(
         `SELECT
            COUNT(*) as total,
-           COUNT(*) FILTER (WHERE estado = 'aceptada') as aceptadas
-         FROM cotizaciones
-         WHERE created_at >= DATE_TRUNC('month', NOW())`
+           COUNT(*) FILTER (WHERE etapa = 'cerrado') as cerrados
+         FROM leads
+         WHERE created_at >= DATE_TRUNC('month', NOW()) ${sinInfo}`
       ),
 
       // Tiempo de respuesta promedio en minutos
@@ -64,17 +70,30 @@ const dashboardPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => 
          WHERE l.created_at >= DATE_TRUNC('month', NOW())`
       ),
 
-      // Ingresos Month-to-Date (sum of accepted cotizaciones for closed leads)
+      // Ingresos Month-to-Date (item 10): cotizaciones aceptadas en el mes.
+      // Usa monto_cerrado cuando hay cierre (soporta parcial); si no, suma de partidas.
       queryOne<{ ingresos_mtd: string }>(
         `SELECT COALESCE(SUM(
-           (SELECT SUM(ci.cantidad * ci.precio_unitario)
-            FROM cotizacion_items ci
-            JOIN cotizaciones cot ON ci.cotizacion_id = cot.id
-            WHERE cot.lead_id = l.id AND cot.estado = 'aceptada')
+           COALESCE(cot.monto_cerrado,
+             (SELECT SUM(ci.cantidad * ci.precio_unitario)
+              FROM cotizacion_items ci WHERE ci.cotizacion_id = cot.id))
          ), 0) as ingresos_mtd
-         FROM leads l
-         WHERE l.etapa = 'cerrado'
-           AND l.ultima_interaccion >= DATE_TRUNC('month', NOW())`
+         FROM cotizaciones cot
+         WHERE cot.estado = 'aceptada'
+           AND COALESCE(cot.cerrada_at, cot.created_at) >= DATE_TRUNC('month', NOW())`
+      ),
+
+      // Ingresos del mes anterior (item 10): base para el comparativo mes-a-mes.
+      queryOne<{ ingresos_prev: string }>(
+        `SELECT COALESCE(SUM(
+           COALESCE(cot.monto_cerrado,
+             (SELECT SUM(ci.cantidad * ci.precio_unitario)
+              FROM cotizacion_items ci WHERE ci.cotizacion_id = cot.id))
+         ), 0) as ingresos_prev
+         FROM cotizaciones cot
+         WHERE cot.estado = 'aceptada'
+           AND COALESCE(cot.cerrada_at, cot.created_at) >= DATE_TRUNC('month', NOW()) - INTERVAL '1 month'
+           AND COALESCE(cot.cerrada_at, cot.created_at) < DATE_TRUNC('month', NOW())`
       ),
 
       // Activity by channel (last 24h)
@@ -99,22 +118,32 @@ const dashboardPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => 
       ),
     ]);
 
-    const totalCotizaciones = parseInt(conversionStats?.total ?? '0', 10);
-    const aceptadasCotizaciones = parseInt(conversionStats?.aceptadas ?? '0', 10);
-    const tasaConversion = totalCotizaciones > 0
-      ? Math.round((aceptadasCotizaciones / totalCotizaciones) * 100 * 10) / 10
+    const totalLeads = parseInt(conversionStats?.total ?? '0', 10);
+    const cerradosLeads = parseInt(conversionStats?.cerrados ?? '0', 10);
+    const tasaConversion = totalLeads > 0
+      ? Math.round((cerradosLeads / totalLeads) * 100 * 10) / 10
       : 0;
+
+    const ingresosMtdVal = parseFloat(ingresosMtd?.ingresos_mtd ?? '0');
+    const ingresosPrevVal = parseFloat(ingresosPrev?.ingresos_prev ?? '0');
+    // Comparativo mes-a-mes (item 10): null cuando no hay base del mes anterior.
+    const ingresosMtdDeltaPct = ingresosPrevVal > 0
+      ? Math.round(((ingresosMtdVal - ingresosPrevVal) / ingresosPrevVal) * 100 * 10) / 10
+      : null;
 
     return reply.send({
       data: {
         leads_nuevos_sin_asignar: parseInt(leadsStats?.leads_nuevos_sin_asignar ?? '0', 10),
         tasa_conversion_pct: tasaConversion,
-        cotizaciones_total_mtd: totalCotizaciones,
-        cotizaciones_aceptadas_mtd: aceptadasCotizaciones,
+        leads_total_mtd: totalLeads,
+        leads_cerrados_mtd: cerradosLeads,
+        excluir_informativos: exclInfo,
         respuesta_promedio_min: respuestaStats?.respuesta_promedio_min
           ? parseFloat(respuestaStats.respuesta_promedio_min)
           : null,
-        ingresos_mtd: parseFloat(ingresosMtd?.ingresos_mtd ?? '0'),
+        ingresos_mtd: ingresosMtdVal,
+        ingresos_mtd_mes_anterior: ingresosPrevVal,
+        ingresos_mtd_delta_pct: ingresosMtdDeltaPct,
         actividad_canales: actividadCanales,
         vendedores_activos: parseInt(vendedoresActivos?.total ?? '0', 10),
       },
@@ -122,10 +151,15 @@ const dashboardPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => 
   });
 
   // GET /dashboard/embudo
-  fastify.get('/embudo', async (_request, reply) => {
+  fastify.get('/embudo', async (request, reply) => {
+    const { excluir_informativos } = request.query as { excluir_informativos?: string | boolean };
+    const exclInfo = excluir_informativos === true || excluir_informativos === 'true';
+    const sinInfo = exclInfo ? `WHERE clasificacion IS DISTINCT FROM 'informativo'` : '';
+
     const etapas = await queryMany<{ etapa: string; count: string }>(
       `SELECT etapa, COUNT(*) as count
        FROM leads
+       ${sinInfo}
        GROUP BY etapa
        ORDER BY
          CASE etapa

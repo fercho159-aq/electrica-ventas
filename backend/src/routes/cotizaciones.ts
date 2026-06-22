@@ -123,6 +123,7 @@ const cotizacionesPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) 
         `SELECT
            cot.id, cot.folio, cot.estado, cot.vigencia_dias, cot.notas,
            cot.pdf_url, cot.created_at,
+           cot.cierre_tipo, cot.monto_cerrado, cot.cierre_notas, cot.cerrada_at,
            l.id as lead_id, l.contacto as lead_contacto, l.empresa as lead_empresa,
            u.id as vendedor_id, u.nombre as vendedor_nombre,
            (SELECT SUM(ci.cantidad * ci.precio_unitario)
@@ -156,11 +157,13 @@ const cotizacionesPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) 
       schema: {
         body: {
           type: 'object',
-          required: ['lead_id', 'items'],
+          required: ['lead_id'],
           properties: {
             lead_id: { type: 'string', format: 'uuid' },
             vigencia_dias: { type: 'integer', minimum: 1, default: 15 },
             notas: { type: 'string', maxLength: 2000 },
+            // Vía rápida (modal "Cotización / Otro"): monto único sin desglose.
+            monto: { type: 'number', minimum: 0 },
             items: {
               type: 'array',
               minItems: 1,
@@ -182,12 +185,22 @@ const cotizacionesPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) 
     },
     async (request, reply) => {
       const user = request.user as JwtUser;
-      const { lead_id, vigencia_dias = 15, notas, items } = request.body as {
+      const { lead_id, vigencia_dias = 15, notas, monto } = request.body as {
         lead_id: string;
         vigencia_dias?: number;
         notas?: string;
-        items: CotizacionItem[];
+        monto?: number;
+        items?: CotizacionItem[];
       };
+
+      // Vía rápida: si llega `monto` sin partidas, generamos una sola línea.
+      let items = (request.body as { items?: CotizacionItem[] }).items;
+      if ((!items || items.length === 0) && typeof monto === 'number') {
+        items = [{ nombre: 'Cotización', cantidad: 1, precio_unitario: monto }];
+      }
+      if (!items || items.length === 0) {
+        return reply.code(422).send({ error: 'Se requieren partidas (items) o un monto' });
+      }
 
       const lead = await queryOne<{ id: string; asignado_a: string | null }>(
         'SELECT id, asignado_a FROM leads WHERE id = $1',
@@ -261,6 +274,120 @@ const cotizacionesPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) 
       );
 
       return reply.code(201).send({ data: { ...created, items: itemsCreated } });
+    }
+  );
+
+  // GET /cotizaciones/:id — detalle con partidas (para visor + cierre)
+  fastify.get<{ Params: { id: string } }>(
+    '/:id',
+    async (request, reply) => {
+      const user = request.user as JwtUser;
+      const { id } = request.params;
+
+      const cotizacion = await queryOne<{ vendedor_id: string | null }>(
+        `SELECT cot.*, l.contacto as lead_contacto, l.empresa as lead_empresa,
+                u.nombre as vendedor_nombre,
+                (SELECT SUM(ci.cantidad * ci.precio_unitario) FROM cotizacion_items ci WHERE ci.cotizacion_id = cot.id) as monto_total
+         FROM cotizaciones cot
+         JOIN leads l ON cot.lead_id = l.id
+         LEFT JOIN usuarios u ON cot.vendedor_id = u.id
+         WHERE cot.id = $1`,
+        [id]
+      );
+
+      if (!cotizacion) {
+        return reply.code(404).send({ error: 'Cotización no encontrada' });
+      }
+
+      if (user.rol === 'vendedor' && cotizacion.vendedor_id !== user.id) {
+        return reply.code(403).send({ error: 'No tienes permiso para ver esta cotización' });
+      }
+
+      const items = await queryMany(
+        'SELECT * FROM cotizacion_items WHERE cotizacion_id = $1 ORDER BY id',
+        [id]
+      );
+
+      return reply.send({ data: { ...cotizacion, items } });
+    }
+  );
+
+  // PATCH /cotizaciones/:id/cierre — cierre parcial/total con monto (item 8)
+  fastify.patch<{ Params: { id: string } }>(
+    '/:id/cierre',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['cierre_tipo', 'monto_cerrado'],
+          properties: {
+            cierre_tipo: { type: 'string', enum: ['parcial', 'total'] },
+            monto_cerrado: { type: 'number', minimum: 0 },
+            cierre_notas: { type: 'string', maxLength: 2000 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = request.user as JwtUser;
+      const { id } = request.params;
+      const { cierre_tipo, monto_cerrado, cierre_notas } = request.body as {
+        cierre_tipo: 'parcial' | 'total';
+        monto_cerrado: number;
+        cierre_notas?: string;
+      };
+
+      const cotizacion = await queryOne<{
+        vendedor_id: string | null;
+        lead_id: string;
+        folio: string;
+      }>(
+        'SELECT vendedor_id, lead_id, folio FROM cotizaciones WHERE id = $1',
+        [id]
+      );
+
+      if (!cotizacion) {
+        return reply.code(404).send({ error: 'Cotización no encontrada' });
+      }
+
+      if (user.rol === 'vendedor' && cotizacion.vendedor_id !== user.id) {
+        return reply.code(403).send({ error: 'No tienes permiso para cerrar esta cotización' });
+      }
+
+      await query(
+        `UPDATE cotizaciones
+         SET cierre_tipo = $1, monto_cerrado = $2, cierre_notas = $3,
+             cerrada_at = NOW(), estado = 'aceptada'
+         WHERE id = $4`,
+        [cierre_tipo, monto_cerrado, cierre_notas ?? null, id]
+      );
+
+      // Una venta cerró → el lead pasa a 'cerrado'.
+      await query(
+        `UPDATE leads SET etapa = 'cerrado', ultima_interaccion = NOW()
+         WHERE id = $1 AND etapa NOT IN ('cerrado', 'no_cierre')`,
+        [cotizacion.lead_id]
+      );
+
+      await query(
+        `INSERT INTO mensajes (lead_id, direccion, origen, usuario_id, texto, ts)
+         VALUES ($1, 'saliente', 'sistema', $2, $3, NOW())`,
+        [
+          cotizacion.lead_id,
+          user.id,
+          `Cierre ${cierre_tipo} de ${cotizacion.folio} por $${monto_cerrado.toLocaleString('es-MX')}${cierre_notas ? `. ${cierre_notas}` : ''}`,
+        ]
+      );
+
+      const updated = await queryOne(
+        `SELECT cot.*,
+                (SELECT SUM(ci.cantidad * ci.precio_unitario) FROM cotizacion_items ci WHERE ci.cotizacion_id = cot.id) as monto_total
+         FROM cotizaciones cot WHERE cot.id = $1`,
+        [id]
+      );
+
+      return reply.send({ data: updated });
     }
   );
 

@@ -49,6 +49,13 @@ function Asignacion() {
       .catch(e => toast('Error: ' + e.message, 'bad'));
   };
 
+  // Item 5: clasificar 1 clic — informativo (no se asigna) / prospecto (se asigna).
+  const clasificar = (leadId, clasificacion) => {
+    ApiClient.clasificarLead(leadId, clasificacion)
+      .then(() => { toast('Lead marcado como ' + clasificacion, 'ok'); nuevosQ.reload(); })
+      .catch(e => toast('Error: ' + e.message, 'bad'));
+  };
+
   const autoAsignar = () => {
     setBusy(true);
     ApiClient.autoAsignar()
@@ -84,21 +91,32 @@ function Asignacion() {
           <div className="card-hd"><h3>Cola de leads nuevos <span className="pill pill-accent">{nuevos.length}</span></h3></div>
           <div style={{maxHeight:560,overflowY:'auto'}}>
             <table className="tbl">
-              <thead><tr><th>Lead</th><th>Canal</th><th>Espera</th><th>Asignar</th></tr></thead>
+              <thead><tr><th>Lead</th><th>Canal</th><th>Clasificar</th><th>Asignar</th></tr></thead>
               <tbody>
                 {nuevos.map(l=>(
                   <tr key={l.id}>
                     <td>
                       <div style={{fontSize:12.5,fontWeight:500}}>{l.contacto}</div>
-                      <div className="muted" style={{fontSize:11}}>{l.empresa || '—'}</div>
+                      <div className="muted" style={{fontSize:11}}>{l.empresa || '—'} · {relTime(new Date(l.ultima_interaccion || l.created_at || Date.now()).getTime())}</div>
                     </td>
                     <td><ChipCanal canal={l.canal_tipo || 'whatsapp'}/></td>
-                    <td className="mono muted" style={{fontSize:11.5}}>{relTime(new Date(l.ultima_interaccion || l.created_at || Date.now()).getTime())}</td>
                     <td>
-                      <select className="input" style={{padding:'3px 6px',fontSize:11.5}} onChange={e=>{ if(e.target.value) asignar(l.id, e.target.value); }} defaultValue="">
-                        <option value="" disabled>Elegir…</option>
-                        {vendedores.map(v=><option key={v.id} value={v.id}>{v.nombre}</option>)}
-                      </select>
+                      <div className="row" style={{gap:4}}>
+                        <button className={'btn btn-sm'+(l.clasificacion==='informativo'?' btn-primary':'')} style={{padding:'2px 6px',fontSize:10.5}}
+                          onClick={()=>clasificar(l.id,'informativo')} title="No se asigna, se atiende y cierra">Info</button>
+                        <button className={'btn btn-sm'+(l.clasificacion==='prospecto'?' btn-primary':'')} style={{padding:'2px 6px',fontSize:10.5}}
+                          onClick={()=>clasificar(l.id,'prospecto')} title="Se asigna a vendedor">Prospecto</button>
+                      </div>
+                    </td>
+                    <td>
+                      {l.clasificacion==='informativo' ? (
+                        <span className="muted" style={{fontSize:11}}>Bandeja general</span>
+                      ) : (
+                        <select className="input" style={{padding:'3px 6px',fontSize:11.5}} onChange={e=>{ if(e.target.value) asignar(l.id, e.target.value); }} defaultValue="">
+                          <option value="" disabled>Elegir…</option>
+                          {vendedores.map(v=><option key={v.id} value={v.id}>{v.nombre}</option>)}
+                        </select>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -235,8 +253,15 @@ function Pipeline() {
 // ─── Cotizaciones ─────────────────────────────────────────────────────────
 function Cotizaciones() {
   const [verCot, setVerCot] = React.useState(null);
+  const [nueva, setNueva] = React.useState(false);
   const toast = useToast();
-  const { data, err } = useBackendData(() => ApiClient.getCotizaciones({ limit: '100' }).then(r => r.data || []));
+  const { data, err, reload } = useBackendData(() => ApiClient.getCotizaciones({ limit: '100' }).then(r => r.data || []));
+
+  const abrirPdf = async (id, e) => {
+    if (e) e.stopPropagation();
+    try { const url = await ApiClient.cotizacionPdfUrl(id); window.open(url, '_blank'); }
+    catch (er) { toast('Error al abrir PDF: ' + er.message, 'bad'); }
+  };
 
   const badgeFor = (e) => {
     if (e === 'aceptada') return 'pill-ok';
@@ -270,10 +295,10 @@ function Cotizaciones() {
       <div className="card">
         <div className="card-hd">
           <h3>Cotizaciones</h3>
-          <button className="btn btn-sm" onClick={()=>toast('Crear cotización: editor de productos pendiente de implementar','info')}><IcoPlus size={12}/>Nueva cotización</button>
+          <button className="btn btn-sm btn-accent" onClick={()=>setNueva(true)}><IcoPlus size={12}/>Nueva cotización</button>
         </div>
         <table className="tbl">
-          <thead><tr><th>Folio</th><th>Cliente</th><th>Vendedor</th><th>Fecha</th><th>Vigencia</th><th>Estado</th><th style={{textAlign:'right'}}>Monto</th><th></th></tr></thead>
+          <thead><tr><th>Folio</th><th>Cliente</th><th>Vendedor</th><th>Fecha</th><th>Vigencia</th><th>Estado</th><th style={{textAlign:'right'}}>Monto</th><th>PDF</th></tr></thead>
           <tbody>
             {base.map(c=>(
               <tr key={c.id} style={{cursor:'pointer'}} onClick={()=>setVerCot(c)}>
@@ -287,7 +312,7 @@ function Cotizaciones() {
                 <td className="mono muted" style={{fontSize:11.5}}>{c.vigencia} días</td>
                 <td><span className={'pill '+badgeFor(c.estado)}>{c.estado}</span></td>
                 <td className="tabular mono" style={{textAlign:'right',fontWeight:500}}>{money(c.monto)}</td>
-                <td><IcoChevronR size={12}/></td>
+                <td><button className="btn btn-sm btn-ghost" onClick={(e)=>abrirPdf(c.id,e)} title="Abrir PDF"><IcoDoc size={12}/></button></td>
               </tr>
             ))}
             {base.length===0 && <tr><td colSpan={8} className="muted" style={{fontSize:12,padding:16}}>Sin cotizaciones.</td></tr>}
@@ -297,30 +322,117 @@ function Cotizaciones() {
 
       <Modal open={!!verCot} onClose={()=>setVerCot(null)} title={verCot ? 'Cotización ' + verCot.folio : ''} width={560}
         footer={<>
+          {verCot && <button className="btn btn-primary" onClick={()=>abrirPdf(verCot.id)}><IcoDoc size={12}/>Abrir PDF</button>}
           <button className="btn" onClick={()=>setVerCot(null)}>Cerrar</button>
         </>}>
-        {verCot && (
-          <>
-            <div className="row" style={{justifyContent:'space-between',marginBottom:12}}>
-              <div>
-                <div style={{fontSize:14,fontWeight:600}}>{verCot.cliente}</div>
-                <div className="muted" style={{fontSize:12}}>{verCot.contacto}</div>
-              </div>
-              <span className={'pill ' + badgeFor(verCot.estado)}>{verCot.estado}</span>
-            </div>
-            <div className="stack" style={{gap:8}}>
-              <div className="row" style={{justifyContent:'space-between'}}><span className="muted" style={{fontSize:12}}>Vendedor</span><span style={{fontSize:12.5}}>{verCot.vendedorNombre || '—'}</span></div>
-              <div className="row" style={{justifyContent:'space-between'}}><span className="muted" style={{fontSize:12}}>Vigencia</span><span className="mono" style={{fontSize:12.5}}>{verCot.vigencia} días</span></div>
-              <div className="row" style={{justifyContent:'space-between'}}><span className="muted" style={{fontSize:12}}>Partidas</span><span className="mono" style={{fontSize:12.5}}>{verCot.numItems}</span></div>
-            </div>
-            <div className="row" style={{justifyContent:'space-between',paddingTop:12,marginTop:8,borderTop:'1px solid var(--line)'}}>
-              <span className="muted" style={{fontSize:12}}>Total</span>
-              <span className="mono tabular" style={{fontSize:16,fontWeight:600}}>{money(verCot.monto)}</span>
-            </div>
-          </>
-        )}
+        {verCot && <CotizacionDetalle cot={verCot} badgeFor={badgeFor}/>}
       </Modal>
+
+      <NuevaCotizacionModal open={nueva} onClose={()=>setNueva(false)} onDone={reload}/>
     </div>
+  );
+}
+
+// Detalle de cotización con partidas reales (item 6/7)
+function CotizacionDetalle({ cot, badgeFor }) {
+  const [det, setDet] = React.useState(null);
+  React.useEffect(() => {
+    setDet(null);
+    ApiClient.getCotizacion(cot.id).then(r => setDet(r.data)).catch(() => setDet({ items: [] }));
+  }, [cot.id]);
+  const items = det?.items || [];
+  return (
+    <>
+      <div className="row" style={{justifyContent:'space-between',marginBottom:12}}>
+        <div>
+          <div style={{fontSize:14,fontWeight:600}}>{cot.cliente}</div>
+          <div className="muted" style={{fontSize:12}}>{cot.contacto}</div>
+        </div>
+        <span className={'pill ' + badgeFor(cot.estado)}>{cot.estado}</span>
+      </div>
+      <div className="stack" style={{gap:8}}>
+        <div className="row" style={{justifyContent:'space-between'}}><span className="muted" style={{fontSize:12}}>Vendedor</span><span style={{fontSize:12.5}}>{cot.vendedorNombre || '—'}</span></div>
+        <div className="row" style={{justifyContent:'space-between'}}><span className="muted" style={{fontSize:12}}>Vigencia</span><span className="mono" style={{fontSize:12.5}}>{cot.vigencia} días</span></div>
+      </div>
+      {items.length > 0 && (
+        <table className="tbl" style={{marginTop:12}}>
+          <thead><tr><th>Partida</th><th style={{textAlign:'right'}}>Cant.</th><th style={{textAlign:'right'}}>P. unit.</th><th style={{textAlign:'right'}}>Importe</th></tr></thead>
+          <tbody>
+            {items.map((it,i)=>(
+              <tr key={i}>
+                <td style={{fontSize:12.5}}>{it.nombre}</td>
+                <td className="mono" style={{textAlign:'right',fontSize:12}}>{it.cantidad}</td>
+                <td className="mono" style={{textAlign:'right',fontSize:12}}>{money(Number(it.precio_unitario))}</td>
+                <td className="mono tabular" style={{textAlign:'right',fontSize:12}}>{money(it.cantidad*Number(it.precio_unitario))}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {det?.monto_cerrado != null && (
+        <div className="row" style={{justifyContent:'space-between',marginTop:8,color:'var(--ok)'}}>
+          <span style={{fontSize:12}}>Cerrado ({det.cierre_tipo})</span>
+          <span className="mono tabular" style={{fontSize:13,fontWeight:600}}>{money(Number(det.monto_cerrado))}</span>
+        </div>
+      )}
+      <div className="row" style={{justifyContent:'space-between',paddingTop:12,marginTop:8,borderTop:'1px solid var(--line)'}}>
+        <span className="muted" style={{fontSize:12}}>Total</span>
+        <span className="mono tabular" style={{fontSize:16,fontWeight:600}}>{money(cot.monto)}</span>
+      </div>
+    </>
+  );
+}
+
+// Crear cotización rápida desde la pestaña global (item 6)
+function NuevaCotizacionModal({ open, onClose, onDone }) {
+  const toast = useToast();
+  const [leads, setLeads] = React.useState([]);
+  const [leadId, setLeadId] = React.useState('');
+  const [monto, setMonto] = React.useState('');
+  const [vigencia, setVigencia] = React.useState(15);
+  const [busy, setBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!open) return;
+    setLeadId(''); setMonto(''); setVigencia(15);
+    ApiClient.getLeads({ limit: '200' }).then(r => setLeads(r.data || [])).catch(() => setLeads([]));
+  }, [open]);
+
+  const crear = async () => {
+    const m = parseFloat(monto);
+    if (!leadId) { toast('Elige un lead', 'bad'); return; }
+    if (!m || m <= 0) { toast('Captura un monto válido', 'bad'); return; }
+    setBusy(true);
+    try {
+      const r = await ApiClient.crearCotizacion({ lead_id: leadId, monto: m, vigencia_dias: Number(vigencia) });
+      toast('Cotización ' + r.data.folio + ' creada', 'ok');
+      onDone?.(); onClose();
+    } catch (e) { toast('Error: ' + e.message, 'bad'); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Nueva cotización" width={480}
+      footer={<>
+        <button className="btn" onClick={onClose} disabled={busy}>Cancelar</button>
+        <button className="btn btn-accent" onClick={crear} disabled={busy}><IcoPlus size={12}/>Crear</button>
+      </>}>
+      <div className="stack" style={{gap:12}}>
+        <div><div className="kpi-label" style={{marginBottom:4}}>Lead</div>
+          <select className="input" value={leadId} onChange={e=>setLeadId(e.target.value)}>
+            <option value="">Elegir lead…</option>
+            {leads.map(l=><option key={l.id} value={l.id}>{l.contacto}{l.empresa?(' · '+l.empresa):''}</option>)}
+          </select></div>
+        <div className="grid-2">
+          <div><div className="kpi-label" style={{marginBottom:4}}>Monto (MXN)</div>
+            <input className="input mono" type="number" min="0" step="0.01" placeholder="0.00" value={monto} onChange={e=>setMonto(e.target.value)}/></div>
+          <div><div className="kpi-label" style={{marginBottom:4}}>Vigencia</div>
+            <select className="input" value={vigencia} onChange={e=>setVigencia(e.target.value)}>
+              <option value={7}>7 días</option><option value={15}>15 días</option><option value={30}>30 días</option></select></div>
+        </div>
+        <div className="muted" style={{fontSize:11}}>Genera el folio y un PDF abrible. Puedes desglosar partidas después.</div>
+      </div>
+    </Modal>
   );
 }
 
@@ -328,8 +440,14 @@ function Cotizaciones() {
 function Remarketing() {
   const toast = useToast();
   const [recontactados, setRecontactados] = React.useState({});
-  const [camps, setCamps] = React.useState({});
+  const [recoSeg, setRecoSeg] = React.useState(null); // segmento abierto en modal de recontacto
   const { data, err } = useBackendData(() => ApiClient.getLeads({ etapa: 'no_cierre', limit: '200' }).then(r => r.data || []));
+  const segQ = useBackendData(() => ApiClient.getSegmentos().then(r => r.data || []));
+  const segmentos = segQ.data || [];
+
+  const exportar = (key) => {
+    ApiClient.exportSegmentoCsv(key).then(() => toast('CSV exportado', 'ok')).catch(e => toast('Error: ' + e.message, 'bad'));
+  };
 
   if (err) return <div className="page"><div className="card" style={{padding:24,color:'var(--accent)'}}>Error: {err}</div></div>;
   if (!data) return <div className="page"><div className="muted" style={{padding:24,fontSize:13}}>Cargando…</div></div>;
@@ -371,29 +489,19 @@ function Remarketing() {
         </div>
 
         <div className="card">
-          <div className="card-hd"><h3>Campañas sugeridas</h3></div>
+          <div className="card-hd"><h3>Segmentos automáticos</h3><span className="card-sub">para campañas y re-contacto</span></div>
           <div className="card-body" style={{display:'flex',flexDirection:'column',gap:12}}>
-            {[
-              ['c1','Descuento por volumen','Motivo: Precio','Precio','WhatsApp'],
-              ['c2','Entrega express 24h','Motivo: Tiempo de entrega','Tiempo de entrega','Correo'],
-              ['c3','Match de precio','Motivo: Competencia','Competencia','WhatsApp'],
-              ['c4','Financiamiento a 60 días','Motivo: Sin presupuesto','Sin presupuesto','Correo'],
-            ].map(([id,titulo,seg,motivo,canal])=>{
-              const n = motivos[motivo]||0;
-              const lanzada = camps[id];
-              return (
-                <div key={id} className="row" style={{gap:12,padding:12,border:'1px solid var(--line)',borderRadius:8}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:500}}>{titulo}</div>
-                    <div className="muted" style={{fontSize:11}}>{seg} · {n} leads · canal: {canal}</div>
-                  </div>
-                  <button className={'btn btn-sm ' + (lanzada?'':'btn-accent')} disabled={n===0||lanzada}
-                    onClick={()=>{setCamps({...camps,[id]:true});toast('Campaña "'+titulo+'" lanzada a '+n+' leads','ok');}}>
-                    {lanzada ? <><IcoCheck size={11}/>Lanzada</> : 'Lanzar'}
-                  </button>
+            {segmentos.length === 0 && <div className="muted" style={{fontSize:12}}>Cargando segmentos…</div>}
+            {segmentos.map(s => (
+              <div key={s.key} className="row" style={{gap:12,padding:12,border:'1px solid var(--line)',borderRadius:8}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:500}}>{s.label}</div>
+                  <div className="muted" style={{fontSize:11}}>{s.count} leads</div>
                 </div>
-              );
-            })}
+                <button className="btn btn-sm btn-ghost" disabled={s.count===0} onClick={()=>exportar(s.key)} title="Exportar CSV para FB/IG"><IcoDoc size={11}/>CSV</button>
+                <button className="btn btn-sm btn-accent" disabled={s.count===0} onClick={()=>setRecoSeg(s)}><IcoRefresh size={11}/>Re-contactar</button>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -411,8 +519,8 @@ function Remarketing() {
                 <td className="tabular mono">{money(l.monto)}</td>
                 <td className="mono muted" style={{fontSize:11.5}}>{Math.floor((Date.now()-l.createdAt)/86400000)}d</td>
                 <td>
-                  <button className={'btn btn-sm ' + (recontactados[l.id]?'':'')} disabled={recontactados[l.id]}
-                    onClick={()=>{setRecontactados({...recontactados,[l.id]:true});toast('Mensaje de re-contacto enviado a '+l.contacto,'ok');}}>
+                  <button className="btn btn-sm" disabled={recontactados[l.id]}
+                    onClick={()=>setRecoSeg({ key:null, label:'Re-contactar a '+l.contacto, leadIds:[l.id], onSent:()=>setRecontactados(s=>({...s,[l.id]:true})) })}>
                     {recontactados[l.id] ? <><IcoCheck size={11}/>Contactado</> : <><IcoRefresh size={11}/>Re-contactar</>}
                   </button>
                 </td>
@@ -421,7 +529,83 @@ function Remarketing() {
           </tbody>
         </table>
       </div>
+
+      <RecontactarModal seg={recoSeg} onClose={()=>setRecoSeg(null)}/>
     </div>
+  );
+}
+
+// Modal de re-contacto: elige plantilla/mensaje y canal, encola campaña (items 13/15)
+function RecontactarModal({ seg, onClose }) {
+  const toast = useToast();
+  const [plantillas, setPlantillas] = React.useState([]);
+  const [canales, setCanales] = React.useState([]);
+  const [plantillaId, setPlantillaId] = React.useState('');
+  const [mensaje, setMensaje] = React.useState('');
+  const [canalId, setCanalId] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const open = !!seg;
+
+  React.useEffect(() => {
+    if (!open) return;
+    setPlantillaId(''); setMensaje(''); setCanalId('');
+    ApiClient.getPlantillas().then(r => setPlantillas(r.data || [])).catch(() => setPlantillas([]));
+    ApiClient.getCanales().then(r => {
+      const list = r.data || r || [];
+      const wa = list.filter(c => c.tipo === 'whatsapp');
+      setCanales(list);
+      if (wa[0]) setCanalId(wa[0].id);
+    }).catch(() => setCanales([]));
+  }, [open]);
+
+  const enviar = async () => {
+    if (!canalId) { toast('Elige un canal', 'bad'); return; }
+    if (!plantillaId && !mensaje.trim()) { toast('Elige plantilla o escribe mensaje', 'bad'); return; }
+    setBusy(true);
+    try {
+      let leadIds = seg.leadIds;
+      if (!leadIds && seg.key) {
+        const r = await ApiClient.getSegmento(seg.key);
+        leadIds = (r.data || []).map(l => l.id);
+      }
+      if (!leadIds || leadIds.length === 0) { toast('Segmento sin leads', 'info'); setBusy(false); return; }
+      await ApiClient.recontactar({
+        lead_ids: leadIds, canal_id: canalId,
+        plantilla_id: plantillaId || undefined,
+        mensaje: plantillaId ? undefined : mensaje.trim(),
+        tipo: 'whatsapp', nombre: seg.label,
+      });
+      toast('Re-contacto encolado a ' + leadIds.length + ' leads', 'ok');
+      seg.onSent?.();
+      onClose();
+    } catch (e) { toast('Error: ' + e.message, 'bad'); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title={seg ? seg.label : ''} width={480}
+      footer={<>
+        <button className="btn" onClick={onClose} disabled={busy}>Cancelar</button>
+        <button className="btn btn-accent" onClick={enviar} disabled={busy}><IcoSend size={12}/>Enviar</button>
+      </>}>
+      <div className="stack" style={{gap:12}}>
+        <div><div className="kpi-label" style={{marginBottom:4}}>Canal WhatsApp</div>
+          <select className="input" value={canalId} onChange={e=>setCanalId(e.target.value)}>
+            <option value="">Elegir canal…</option>
+            {canales.filter(c=>c.tipo==='whatsapp').map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}
+          </select></div>
+        <div><div className="kpi-label" style={{marginBottom:4}}>Plantilla aprobada</div>
+          <select className="input" value={plantillaId} onChange={e=>setPlantillaId(e.target.value)}>
+            <option value="">— Mensaje libre —</option>
+            {plantillas.map(p=><option key={p.id} value={p.id}>{p.nombre} ({p.categoria})</option>)}
+          </select></div>
+        {!plantillaId && (
+          <div><div className="kpi-label" style={{marginBottom:4}}>Mensaje</div>
+            <textarea className="input" rows={3} placeholder="Mensaje de seguimiento…" value={mensaje} onChange={e=>setMensaje(e.target.value)}/></div>
+        )}
+        <div className="muted" style={{fontSize:11}}>Reenvío en un clic — se encola como campaña.</div>
+      </div>
+    </Modal>
   );
 }
 
