@@ -1,7 +1,7 @@
 // =============================================================================
 // Electrica Ventas - Configuración PM2 (VPS multi-app 31.220.109.7)
 // Nombres con prefijo "electrica-" para no chocar con otras apps del VPS
-// Puerto 3010 (3000 reservado por appsoluciones)
+// Puerto definido en /etc/electrica/.env (PORT=); este VPS usa 3011
 // Uso: pm2 start devops/pm2.config.js --env production
 // =============================================================================
 
@@ -30,7 +30,8 @@ module.exports = {
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       env_production: {
         NODE_ENV: 'production',
-        PORT: 3010,
+        // PORT lo define /etc/electrica/.env vía dotenv (este VPS usa 3011).
+        // No fijarlo aquí: hardcodearlo pisa el .env y puede chocar con otra app.
       },
     },
 
